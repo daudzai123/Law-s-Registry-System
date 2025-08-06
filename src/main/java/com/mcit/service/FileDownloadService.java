@@ -8,9 +8,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Optional;
 
 @Service
 public class FileDownloadService {
@@ -24,29 +24,29 @@ public class FileDownloadService {
         this.lawRepository = lawRepository;
     }
 
-    public Resource loadLawAttachmentById(Long lawId) {
+    public Resource loadFileById(Long id) {
         try {
-            Law law = lawRepository.findById(lawId)
-                    .orElseThrow(() -> new FileStorageException("Law with ID " + lawId + " not found."));
+            Law fileRecord = lawRepository.findById(id)
+                    .orElseThrow(() -> new FileStorageException("File with ID " + id + " not found in database."));
 
-            String attachmentPath = law.getAttachment();
-
-            if (attachmentPath == null || attachmentPath.trim().isEmpty()) {
-                throw new FileStorageException("No attachment found for Law ID: " + lawId);
+            String attachmentPath = fileRecord.getAttachment();
+            if (attachmentPath == null || attachmentPath.isBlank()) {
+                throw new FileStorageException("No attachment found for record ID: " + id);
             }
 
-            // Extract only the filename and resolve it in the base directory
-            Path fileNameOnly = Paths.get(attachmentPath).getFileName();
-            Path filePath = fileStorageLocation.resolve(fileNameOnly).normalize();
+            // Remove the base directory if stored path contains it
+            String fileName = attachmentPath.replace(fileStorageLocation.toString() + "\\", "");
 
-            if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
-                throw new FileStorageException("Attachment is not accessible: " + fileNameOnly);
+            Path filePath = fileStorageLocation.resolve(fileName).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+
+            if (!resource.exists() || !resource.isReadable()) {
+                throw new FileStorageException("File does not exist or is not readable: " + fileName);
             }
 
-            return new UrlResource(filePath.toUri());
-
+            return resource;
         } catch (Exception ex) {
-            throw new FileStorageException("Failed to load law attachment: " + ex.getMessage(), ex);
+            throw new FileStorageException("Error loading file: " + ex.getMessage(), ex);
         }
     }
 }

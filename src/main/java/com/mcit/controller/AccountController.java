@@ -1,6 +1,7 @@
 package com.mcit.controller;
 
 import com.mcit.dto.AdminUserDTO;
+import com.mcit.dto.AuthResponse;
 import com.mcit.dto.UserProfileDTO;
 import com.mcit.entity.MyUser;
 import com.mcit.jwt.JwtUtilityClass;
@@ -19,6 +20,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,8 +32,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -164,29 +168,39 @@ public class AccountController {
     @PostMapping("/authenticate")
     public ResponseEntity<?> authenticateAndGetToken(@RequestBody LoginForm loginForm) {
         try {
+            // Try authenticating - will throw BadCredentialsException if invalid
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             loginForm.identifier(), loginForm.password()
                     )
             );
 
+            // Find MyUser by username or email (your helper method)
             Optional<MyUser> optionalUser = findByUsernameOrEmail(loginForm.identifier());
-
             if (optionalUser.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
             }
 
             MyUser user = optionalUser.get();
 
-            if (!user.getIsActive()) {
+            if (!Boolean.TRUE.equals(user.getIsActive())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Inactive user. Please contact admin.");
             }
 
-            if (authentication.isAuthenticated()) {
-                UserDetails userDetails = myUserDetailService.loadUserByUsername(loginForm.identifier());
-                String token = jwtUtilityClass.generateToken(userDetails);
-                return ResponseEntity.ok(token);
-            }
+            // Load UserDetails using the canonical username from DB (avoid using the raw identifier)
+            UserDetails userDetails = myUserDetailService.loadUserByUsername(user.getUsername());
+
+            // Generate token (ensure your jwtUtilityClass includes roles claim if needed)
+            String token = jwtUtilityClass.generateToken(userDetails);
+
+            // Extract roles from UserDetails
+            List<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toList());
+
+            // Build and return response DTO
+            AuthResponse authResponse = new AuthResponse(token, roles);
+            return ResponseEntity.ok(authResponse);
 
         } catch (BadCredentialsException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username/email or password");
@@ -194,9 +208,8 @@ public class AccountController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Authentication error");
         }
-
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
     }
+
 
     @GetMapping("/account")
     public AdminUserDTO getAccount(@RequestHeader("Authorization") String token) {
