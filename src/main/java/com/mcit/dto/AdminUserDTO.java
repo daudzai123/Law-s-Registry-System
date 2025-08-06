@@ -13,7 +13,6 @@ public class AdminUserDTO {
     private String email;
     private String username;
     private Role role;
-    private boolean isHead;
 
     // Constructor (without isHead, optional)
     public AdminUserDTO(Long id, String firstname, String lastname, String fathername, String nid,
@@ -28,14 +27,6 @@ public class AdminUserDTO {
         this.email = email;
         this.username = username;
         this.role = role;
-    }
-
-    // Optionally, you could add an overloaded constructor that includes isHead
-    public AdminUserDTO(Long id, String firstname, String lastname, String fathername, String nid,
-                        String phone, String email, String username,
-                        Role role, boolean isHead) {
-        this(id, firstname, lastname, fathername, nid, phone, email, username, role);
-        this.isHead = isHead;
     }
 
     // Getters and Setters
@@ -113,11 +104,4 @@ public class AdminUserDTO {
         this.role = role;
     }
 
-    public boolean isHead() {
-        return isHead;
-    }
-
-    public void setIsHead(boolean isHead) {
-        this.isHead = isHead;
-    }
 }
