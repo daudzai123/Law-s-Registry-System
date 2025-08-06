@@ -5,8 +5,6 @@ import com.mcit.enums.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.time.LocalDate;
-
 @Data
 @Entity
 @Table(name = "laws", uniqueConstraints = {
@@ -41,11 +39,9 @@ public class Law {
     @Column(name = "status")
     private Status status;
 
-    @Column(name = "tawsheeh_date")
-    private LocalDate tawsheehDate;
-
-    @Column(name = "tawsheeh_department")
-    private String tawsheehDepartment;
+    // store Hijri date string like "1446-02-15" or localized format
+    @Column(name = "publish_date")
+    private String publishDate;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
@@ -56,5 +52,4 @@ public class Law {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private MyUser user;
-
 }

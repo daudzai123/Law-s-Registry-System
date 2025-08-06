@@ -71,8 +71,6 @@ public class LawService {
         dto.setTitleDr(law.getTitleDr());
         dto.setType(law.getType());
         dto.setStatus(law.getStatus());
-        dto.setTawsheehDate(law.getTawsheehDate());
-        dto.setTawsheehDepartment(law.getTawsheehDepartment());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
         dto.setUserId(law.getUser() != null ? law.getUser().getId() : null);
@@ -90,8 +88,6 @@ public class LawService {
         law.setTitleDr(dto.getTitleDr());
         law.setType(dto.getType());
         law.setStatus(dto.getStatus());
-        law.setTawsheehDate(dto.getTawsheehDate());
-        law.setTawsheehDepartment(dto.getTawsheehDepartment());
         law.setDescription(dto.getDescription());
         law.setAttachment(dto.getAttachment());
         // user is set separately using userRepository to avoid lazy initialization problems
@@ -138,8 +134,6 @@ public class LawService {
         // Update other fields only if non-null
         if (updates.getType() != null) existingLaw.setType(updates.getType());
         if (updates.getStatus() != null) existingLaw.setStatus(updates.getStatus());
-        if (updates.getTawsheehDate() != null) existingLaw.setTawsheehDate(updates.getTawsheehDate());
-        if (updates.getTawsheehDepartment() != null) existingLaw.setTawsheehDepartment(updates.getTawsheehDepartment());
         if (updates.getDescription() != null) existingLaw.setDescription(updates.getDescription());
         if (updates.getAttachment() != null) existingLaw.setAttachment(updates.getAttachment());
 
