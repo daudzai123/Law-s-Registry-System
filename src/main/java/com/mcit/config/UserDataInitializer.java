@@ -23,7 +23,6 @@ public class UserDataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         System.out.println("🔁 Running UserDataInitializer...");
-        createDefaultUser("user", "123", Role.ROLE_USER, "Default", "User", "user@example.com");
         createDefaultUser("lawManager", "123", Role.ROLE_LAW_MANAGER, "Law", "Manager", "lawmgr@example.com");
         createDefaultUser("admin", "123", Role.ROLE_ADMIN, "Default", "Admin", "admin@example.com");
     }

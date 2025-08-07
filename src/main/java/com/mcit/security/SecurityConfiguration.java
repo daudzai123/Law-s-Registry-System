@@ -75,17 +75,24 @@ public class SecurityConfiguration {
                 // IMPORTANT: Explicitly register your AuthenticationProvider
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(registry -> {
-                    registry.requestMatchers("/home", "/api/register/**", "/api/authenticate").permitAll();
-                    registry.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
-                    registry.requestMatchers("/swagger-ui/index.html").permitAll();
+                    registry.requestMatchers(
+                            "/home",
+                            "/api/register/**",
+                            "/api/authenticate",
+                            "/v3/api-docs/**",
+                            "/v3/api-docs.yaml",
+                            "/swagger-ui/**",
+                            "/swagger-ui.html",
+                            "/swagger-ui/index.html",
+                            "/webjars/**"
+                    ).permitAll();
                     registry.requestMatchers("/api/users/**", "/api/account/**").permitAll();
                     registry.requestMatchers(HttpMethod.GET, "/api/user/{id}").permitAll();
-                    registry.requestMatchers(HttpMethod.GET, "/api/enums/literacy-levels").permitAll();
-                    registry.requestMatchers(HttpMethod.POST, "/api/enums/literacy-levels").permitAll();
                     registry.requestMatchers(HttpMethod.POST, "/api/**").permitAll();
                     registry.requestMatchers("/api/verify-email").permitAll();
                     registry.anyRequest().authenticated();
                 })
+
                 .formLogin(AbstractHttpConfigurer::disable)
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
                 .build();
@@ -94,6 +101,8 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedOriginPatterns(List.of("*")); // allow Swagger too
         configuration.setAllowedOrigins(List.of("http://localhost:3000")); // make sure frontend runs here
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

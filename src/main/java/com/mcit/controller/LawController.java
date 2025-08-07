@@ -67,11 +67,6 @@ public class LawController {
         }
         lawDTO.setUserId(userOpt.get().getId());
 
-        // Set tawsheehDate if null
-        if (lawDTO.getTawsheehDate() == null) {
-            lawDTO.setTawsheehDate(LocalDate.now());
-        }
-
         // Validate attachment presence (required)
         if (attachmentFile == null || attachmentFile.isEmpty()) {
             return ResponseEntity.badRequest().body("Attachment file is required.");

@@ -14,8 +14,6 @@ public class LawDTO {
     private String titleDr;
     private LawType type;
     private Status status;
-    private LocalDate tawsheehDate;
-    private String tawsheehDepartment;
     private String description;
     private String attachment;
     private Long userId; // instead of MyUser entity

@@ -2,7 +2,6 @@ package com.mcit.enums;
 
 public enum Role {
     ROLE_LAW_MANAGER("LawManger"),
-    ROLE_USER("User"),
     ROLE_ADMIN("Admin");
 
     private final String displayName;
