@@ -2,6 +2,9 @@ package com.mcit.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mcit.dto.LawDTO;
+import com.mcit.dto.LawPaginatedResponseDTO;
+import com.mcit.dto.LawResponseDTO;
+import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
 import com.mcit.entity.MyUser;
 import com.mcit.exception.DuplicateLawException;
@@ -12,6 +15,7 @@ import com.mcit.service.LawService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -99,14 +103,14 @@ public class LawController {
         }
     }
 
-    /**
-     * Return all laws as DTOs (avoid returning entities directly)
-     */
-    @GetMapping
-    public ResponseEntity<List<LawDTO>> getAllLaws() {
-        List<LawDTO> dtos = lawService.findAllAsDTO();
-        return ResponseEntity.ok(dtos);
-    }
+//    /**
+//     * Return all laws as DTOs (avoid returning entities directly)
+//     */
+//    @GetMapping
+//    public ResponseEntity<List<LawDTO>> getAllLaws() {
+//        List<LawDTO> dtos = lawService.findAllAsDTO();
+//        return ResponseEntity.ok(dtos);
+//    }
 
     private boolean isAllowedFile(MultipartFile file) {
         String contentType = file.getContentType();
@@ -130,6 +134,53 @@ public class LawController {
         }
         return ResponseEntity.ok(law);
     }
+
+    @GetMapping
+    public ResponseEntity<LawPaginatedResponseDTO<LawResponseDTO>> searchLaws(
+            LawSearchCriteriaDTO criteria,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "id,asc") String[] sort) {
+
+        Page<Law> result = lawService.searchLaws(criteria, page, size, sort);
+
+        List<LawResponseDTO> dtoList = result.getContent().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+
+        LawPaginatedResponseDTO<LawResponseDTO> response = new LawPaginatedResponseDTO<>(
+                dtoList,
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages(),
+                result.hasNext(),
+                result.hasPrevious()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    private LawResponseDTO mapToDTO(Law law) {
+        LawResponseDTO dto = new LawResponseDTO();
+        dto.setId(law.getId());
+        dto.setType(law.getType());
+        dto.setSequenceNumber(law.getSequenceNumber());
+        dto.setTitleEng(law.getTitleEng());
+        dto.setTitlePs(law.getTitlePs());
+        dto.setTitleDr(law.getTitleDr());
+        dto.setPublishDate(law.getPublishDate());
+        dto.setStatus(law.getStatus());
+        dto.setDescription(law.getDescription());
+        dto.setAttachment(law.getAttachment());
+
+        if (law.getUser() != null) {
+            dto.setUserId(law.getUser().getId());
+        }
+
+        return dto;
+    }
+
 
     // ✅ 4. Delete a law by ID
     @DeleteMapping("/{id}")

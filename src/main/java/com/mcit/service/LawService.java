@@ -1,12 +1,19 @@
 package com.mcit.service;
 
 import com.mcit.dto.LawDTO;
+import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
 import com.mcit.entity.MyUser;
 import com.mcit.exception.DuplicateLawException;
 import com.mcit.repo.LawRepository;
 import com.mcit.repo.MyUserRepository;
+import com.mcit.specification.LawSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +55,19 @@ public class LawService {
 
         Law saved = lawRepository.save(law);
         return toDTO(saved);
+    }
+
+
+    public Page<Law> searchLaws(LawSearchCriteriaDTO criteria, int page, int size, String[] sort) {
+        Specification<Law> spec = LawSpecification.filterByCriteria(criteria);
+
+        Sort sortOrder = Sort.by(
+                Sort.Direction.fromString(sort[1]),
+                sort[0]
+        );
+
+        Pageable pageable = PageRequest.of(page, size, sortOrder);
+        return lawRepository.findAll(spec, pageable);
     }
 
     // Optional: other service methods (findById, delete, etc.)
