@@ -20,7 +20,7 @@ public class LawService {
     private final LawRepository lawRepository;
     private final MyUserRepository userRepository;
 
-    public LawDTO createLawFromDTO(LawDTO dto) {
+    public LawDTO addLawFromDTO(LawDTO dto) {
         // Duplicate checks
         if (dto.getSequenceNumber() != null && lawRepository.existsBySequenceNumber(dto.getSequenceNumber())) {
             throw new DuplicateLawException("Sequence number '" + dto.getSequenceNumber() + "' already exists.");
@@ -64,6 +64,7 @@ public class LawService {
     public LawDTO toDTO(Law law) {
         if (law == null) return null;
         LawDTO dto = new LawDTO();
+        dto.setPublishDate(law.getPublishDate());
         dto.setId(law.getId());
         dto.setSequenceNumber(law.getSequenceNumber());
         dto.setTitleEng(law.getTitleEng());
@@ -82,6 +83,7 @@ public class LawService {
         Law law = new Law();
         // Do not set ID if you want it auto-generated on create; but if updating, you may set it
         law.setId(dto.getId());
+        law.setPublishDate(dto.getPublishDate());
         law.setSequenceNumber(dto.getSequenceNumber());
         law.setTitleEng(dto.getTitleEng());
         law.setTitlePs(dto.getTitlePs());

@@ -1,5 +1,8 @@
 package com.mcit.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import jakarta.persistence.*;
@@ -19,6 +22,10 @@ public class Law {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type")
+    private LawType type;
+
     @Column(name = "sequence_number", nullable = false)
     private Long sequenceNumber;
 
@@ -31,17 +38,14 @@ public class Law {
     @Column(name = "title_dr", nullable = false)
     private String titleDr;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type")
-    private LawType type;
+    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Hijri date must be in format yyyy-MM-dd")
+    @Column(name = "publish_date", nullable = false, length = 10)
+    @NotBlank(message = "Publish date is required")
+    private String publishDate;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private Status status;
-
-    // store Hijri date string like "1446-02-15" or localized format
-    @Column(name = "publish_date")
-    private String publishDate;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;

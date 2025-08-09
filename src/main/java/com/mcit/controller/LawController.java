@@ -89,7 +89,7 @@ public class LawController {
         lawDTO.setAttachment(savedFilename);
 
         try {
-            LawDTO saved = lawService.createLawFromDTO(lawDTO);
+            LawDTO saved = lawService.addLawFromDTO(lawDTO);
             return ResponseEntity.status(HttpStatus.CREATED).body(saved);
         } catch (DuplicateLawException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
