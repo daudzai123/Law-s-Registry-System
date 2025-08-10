@@ -17,33 +17,40 @@ import java.util.Set;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 🔹 Handle @Valid validation errors at request level
+    // Utility method to get root cause message
+    private String getRootCauseMessage(Throwable e) {
+        Throwable cause = e;
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+        }
+        return cause.getMessage() != null ? cause.getMessage() : e.toString();
+    }
+
+    // 🔹 Handle @Valid validation errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, String>> handleValidationExceptions(MethodArgumentNotValidException ex) {
         Map<String, String> errors = new HashMap<>();
         for (FieldError error : ex.getBindingResult().getFieldErrors()) {
             errors.put(error.getField(), error.getDefaultMessage());
         }
-
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
-    // 🔹 Handle @NotBlank, @NotNull, and other validation errors at persistence level
+    // 🔹 Handle constraint violations (e.g. @NotNull at persistence level)
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Map<String, String>> handleConstraintViolation(ConstraintViolationException ex) {
         Map<String, String> errors = new HashMap<>();
         Set<ConstraintViolation<?>> violations = ex.getConstraintViolations();
-        
+
         for (ConstraintViolation<?> violation : violations) {
             String fieldName = violation.getPropertyPath().toString();
             String message = violation.getMessage();
             errors.put(fieldName, message);
         }
-
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
-    // 🔹 Handle unique constraint violations
+    // 🔹 Handle unique/NOT NULL constraint violations
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleConstraintViolation(DataIntegrityViolationException e) {
         String message = extractConstraintMessage(e);
@@ -56,53 +63,49 @@ public class GlobalExceptionHandler {
     }
 
     private String extractConstraintMessage(DataIntegrityViolationException e) {
-        Throwable rootCause = e.getMostSpecificCause();
-        if (rootCause != null) {
-            String message = rootCause.getMessage();
+        String message = getRootCauseMessage(e);
 
-            // Detect NOT NULL constraint violation
-            if (message.contains("null value in column")) {
-                int columnStart = message.indexOf("column \"") + 8;
-                int columnEnd = message.indexOf("\"", columnStart);
-                if (columnStart > 7 && columnEnd > columnStart) {
-                    String fieldName = message.substring(columnStart, columnEnd).trim();
-                    return "Field '" + fieldName + "' cannot be null";
-                }
-            }
-
-            // Detect UNIQUE constraint violation dynamically
-            if (message.contains("Key (")) {
-                int keyStart = message.indexOf("Key (") + 5;
-                int keyEnd = message.indexOf(")", keyStart);
-                if (keyStart > 4 && keyEnd > keyStart) {
-                    String fieldName = message.substring(keyStart, keyEnd).trim();
-                    return "Field '" + fieldName + "' already exists";
-                }
+        if (message.contains("null value in column")) {
+            int columnStart = message.indexOf("column \"") + 8;
+            int columnEnd = message.indexOf("\"", columnStart);
+            if (columnStart > 7 && columnEnd > columnStart) {
+                String fieldName = message.substring(columnStart, columnEnd).trim();
+                return "Field '" + fieldName + "' cannot be null";
             }
         }
-        return "A database constraint violation occurred";
+
+        if (message.contains("Key (")) {
+            int keyStart = message.indexOf("Key (") + 5;
+            int keyEnd = message.indexOf(")", keyStart);
+            if (keyStart > 4 && keyEnd > keyStart) {
+                String fieldName = message.substring(keyStart, keyEnd).trim();
+                return "Field '" + fieldName + "' already exists";
+            }
+        }
+
+        return message; // If nothing matched, return raw DB message
     }
 
-    // Handle illegal argument exceptions (e.g., trying to update restricted fields)
+    // 🔹 Handle invalid argument exceptions
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgumentException(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "Invalid update operation", "message", ex.getMessage()));
+                .body(Map.of("error", "Invalid update operation", "message", getRootCauseMessage(ex)));
     }
 
-    // 🔹 Handle entity not found exceptions (returns 404)
+    // 🔹 Handle resource not found
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, String>> handleResourceNotFoundException(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-            .body(Map.of("error", "Resource Not Found", "message", ex.getMessage()));
+                .body(Map.of("error", "Resource Not Found", "message", getRootCauseMessage(ex)));
     }
 
-    // 🔹 Handle generic exceptions
+    // 🔹 Catch-all for all other exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleGenericException(Exception e) {
         Map<String, String> errorResponse = new HashMap<>();
-        errorResponse.put("error", "Internal Server Error");
-        errorResponse.put("message", e.getMessage());
+        errorResponse.put("error", e.getClass().getSimpleName()); // e.g. NullPointerException
+        errorResponse.put("message", getRootCauseMessage(e));     // exact root cause message
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
     }

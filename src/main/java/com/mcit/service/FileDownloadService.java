@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Optional;
 
 @Service
 public class FileDownloadService {
@@ -20,7 +19,7 @@ public class FileDownloadService {
 
     @Autowired
     public FileDownloadService(LawRepository lawRepository) {
-        this.fileStorageLocation = Paths.get("E:\\Law's Registry System\\attachment").toAbsolutePath().normalize();
+        this.fileStorageLocation = Paths.get("D:\\Law's Registry System\\attachment").toAbsolutePath().normalize();
         this.lawRepository = lawRepository;
     }
 

@@ -51,57 +51,42 @@ public class LawController {
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> addLaw(
             @RequestPart("law") String lawJson,
-            @RequestPart(value = "attachment", required = false) MultipartFile attachmentFile,
-            HttpServletRequest request
+            @RequestPart(value = "attachment", required = false) MultipartFile attachmentFile
     ) throws IOException {
 
-        // Parse incoming JSON to DTO
-        LawDTO lawDTO;
-        try {
-            lawDTO = objectMapper.readValue(lawJson, LawDTO.class);
-        } catch (Exception ex) {
-            return ResponseEntity.badRequest().body("Invalid law JSON payload.");
-        }
+        // Parse JSON
+        LawDTO lawDTO = objectMapper.readValue(lawJson, LawDTO.class);
 
         // Validate logged-in user
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        Optional<MyUser> userOpt = userRepository.findByUsername(username);
-        if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid user.");
-        }
-        lawDTO.setUserId(userOpt.get().getId());
+        MyUser user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid user."));
+        lawDTO.setUserId(user.getId());
 
-        // Validate attachment presence (required)
+        // Validate attachment presence
         if (attachmentFile == null || attachmentFile.isEmpty()) {
-            return ResponseEntity.badRequest().body("Attachment file is required.");
+            throw new IllegalArgumentException("Attachment file is required.");
         }
 
         // Validate attachment size
         if (attachmentFile.getSize() > MAX_FILE_SIZE) {
-            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                    .body("Attachment size exceeds 3MB limit.");
+            throw new IllegalArgumentException("Attachment size exceeds 3MB limit.");
         }
 
-        // Validate attachment file type by content type AND extension (pdf or docx)
+        // Validate file type
         if (!isAllowedFile(attachmentFile)) {
-            return ResponseEntity.badRequest()
-                    .body("Only PDF and DOCX files are allowed.");
+            throw new IllegalArgumentException("Only PDF and DOCX files are allowed.");
         }
 
-        // Save attachment file and set filename in DTO
+        // Save file
         String savedFilename = fileStorageService.saveFile(attachmentFile);
         lawDTO.setAttachment(savedFilename);
 
-        try {
-            LawDTO saved = lawService.addLawFromDTO(lawDTO);
-            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
-        } catch (DuplicateLawException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to save law.");
-        }
+        // Save law (business-specific exception handled separately)
+        LawDTO saved = lawService.addLawFromDTO(lawDTO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
+
 
 //    /**
 //     * Return all laws as DTOs (avoid returning entities directly)

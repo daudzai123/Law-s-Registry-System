@@ -20,7 +20,7 @@ public class FileStorageService {
     @Autowired
     public FileStorageService() {
         // Specify the directory where you want to store the uploaded files
-        this.fileStorageLocation = Paths.get("E:\\Law's Registry System\\attachment").toAbsolutePath().normalize();
+        this.fileStorageLocation = Paths.get("D:\\Law's Registry System\\attachment").toAbsolutePath().normalize();
         try {
             // Create the directory if it doesn't exist
             Files.createDirectories(this.fileStorageLocation);

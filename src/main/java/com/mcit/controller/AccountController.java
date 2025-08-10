@@ -84,7 +84,7 @@ public class AccountController {
         if (imageFile != null && !imageFile.isEmpty()) {
             profileImagePath = fileStorageService.saveProfileImage(imageFile, user.getUsername());
         } else {
-            profileImagePath = "E:\\Law's Registry System\\attachment\\default_avatar.jpg";
+            profileImagePath = "D:\\Law's Registry System\\attachment\\default_avatar.jpg";
         }
 
         user.setUsername(user.getUsername().toLowerCase());
