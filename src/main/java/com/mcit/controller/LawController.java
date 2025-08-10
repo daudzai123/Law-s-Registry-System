@@ -87,16 +87,7 @@ public class LawController {
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-
-//    /**
-//     * Return all laws as DTOs (avoid returning entities directly)
-//     */
-//    @GetMapping
-//    public ResponseEntity<List<LawDTO>> getAllLaws() {
-//        List<LawDTO> dtos = lawService.findAllAsDTO();
-//        return ResponseEntity.ok(dtos);
-//    }
-
+    // this function shows allowed files
     private boolean isAllowedFile(MultipartFile file) {
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename();
@@ -120,6 +111,7 @@ public class LawController {
         return ResponseEntity.ok(law);
     }
 
+    // get all laws or filter laws
     @GetMapping
     public ResponseEntity<LawPaginatedResponseDTO<LawResponseDTO>> searchLaws(
             LawSearchCriteriaDTO criteria,
@@ -146,6 +138,7 @@ public class LawController {
         return ResponseEntity.ok(response);
     }
 
+    // mapping lawResponseDTO to law entity
     private LawResponseDTO mapToDTO(Law law) {
         LawResponseDTO dto = new LawResponseDTO();
         dto.setId(law.getId());
@@ -174,6 +167,7 @@ public class LawController {
         return ResponseEntity.ok("Law deleted successfully with ID: " + id);
     }
 
+    // partial update law by id
     @PatchMapping("/{id}")
     public ResponseEntity<?> partialUpdateLaw(@PathVariable Long id, @RequestBody LawDTO updates) {
         try {
@@ -190,6 +184,7 @@ public class LawController {
         }
     }
 
+    // download the law attachment
     @GetMapping("/download_attachment/{id}")
     public ResponseEntity<Resource> downloadAttachment(@PathVariable Long id) {
         Resource resource = fileDownloadService.loadFileById(id);
@@ -204,6 +199,5 @@ public class LawController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
     }
-
 
 }
