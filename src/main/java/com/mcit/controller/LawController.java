@@ -7,6 +7,8 @@ import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
 import com.mcit.entity.MyUser;
+import com.mcit.enums.LawType;
+import com.mcit.enums.Status;
 import com.mcit.exception.DuplicateLawException;
 import com.mcit.repo.MyUserRepository;
 import com.mcit.service.FileDownloadService;
@@ -27,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -199,5 +202,37 @@ public class LawController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
     }
+
+    @GetMapping("/status-counts")
+    public ResponseEntity<Map<Status, Long>> getLawStatusCounts() {
+        Map<Status, Long> counts = lawService.getLawCountsByStatus();
+        return ResponseEntity.ok(counts);
+    }
+
+    @GetMapping("/type-counts")
+    public ResponseEntity<Map<LawType, Long>> getLawTypeCounts() {
+        Map<LawType, Long> counts = lawService.getLawCountsByType();
+        return ResponseEntity.ok(counts);
+    }
+
+    @GetMapping("/annually&monthly-report")
+    public ResponseEntity<Map<LawType, Long>> getMonthlyReport(
+            @RequestParam String year,               // e.g., "1446"
+            @RequestParam(required = false) String month) {  // e.g., "01", "02", etc.
+
+        try {
+            int yearInt = Integer.parseInt(year);
+
+            if (month != null) {
+                int monthInt = Integer.parseInt(month);
+                return ResponseEntity.ok(lawService.getReportByMonthAndYear(yearInt, monthInt));
+            } else {
+                return ResponseEntity.ok(lawService.getReportByYear(yearInt));
+            }
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
 
 }

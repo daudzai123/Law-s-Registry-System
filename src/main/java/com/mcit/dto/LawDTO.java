@@ -1,9 +1,11 @@
 package com.mcit.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import java.time.LocalDate;
+import java.util.Date;
 
 @Data
 public class LawDTO {
@@ -14,7 +16,8 @@ public class LawDTO {
     private String titlePs;
     private String titleDr;
     private Status status;
-    private String publishDate;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate publishDate;
     private String description;
     private String attachment;
     private Long userId; // instead of MyUser entity

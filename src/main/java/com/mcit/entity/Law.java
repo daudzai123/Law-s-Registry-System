@@ -1,5 +1,6 @@
 package com.mcit.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -7,6 +8,9 @@ import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import jakarta.persistence.*;
 import lombok.Data;
+
+import java.time.LocalDate;
+import java.util.Date;
 
 @Data
 @Entity
@@ -38,10 +42,10 @@ public class Law {
     @Column(name = "title_dr", nullable = false)
     private String titleDr;
 
-    @Pattern(regexp = "^\\d{4}-\\d{2}-\\d{2}$", message = "Hijri date must be in format yyyy-MM-dd")
-    @Column(name = "publish_date", nullable = false, length = 10)
-    @NotBlank(message = "Publish date is required")
-    private String publishDate;
+    @Column(name = "publish_date", nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate publishDate;
+
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status")

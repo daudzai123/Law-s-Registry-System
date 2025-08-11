@@ -4,6 +4,8 @@ import com.mcit.dto.LawDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
 import com.mcit.entity.MyUser;
+import com.mcit.enums.LawType;
+import com.mcit.enums.Status;
 import com.mcit.exception.DuplicateLawException;
 import com.mcit.repo.LawRepository;
 import com.mcit.repo.MyUserRepository;
@@ -17,7 +19,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -175,5 +179,47 @@ public class LawService {
                 .map(Law::getAttachment)
                 .orElse(null);
     }
+
+    public Map<Status, Long> getLawCountsByStatus() {
+        return lawRepository.countLawsByStatus()
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (Status) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
+    public Map<LawType, Long> getLawCountsByType() {
+        return lawRepository.countLawsByType()
+                .stream()
+                .collect(Collectors.toMap(
+                        row -> (LawType) row[0],
+                        row -> (Long) row[1]
+                ));
+    }
+
+    // Change year parameter to int
+    public Map<LawType, Long> getReportByYear(int year) {
+        return convertToMap(lawRepository.countLawsByTypeForYear(year));
+    }
+
+    // Change year and month parameters to int
+    public Map<LawType, Long> getReportByMonthAndYear(int year, int month) {
+        return convertToMap(lawRepository.countLawsByTypeForYearAndMonth(year, month));
+    }
+
+    private Map<LawType, Long> convertToMap(List<Object[]> results) {
+        Map<LawType, Long> counts = Arrays.stream(LawType.values())
+                .collect(Collectors.toMap(type -> type, type -> 0L));
+
+        results.forEach(row -> counts.put((LawType) row[0], (Long) row[1]));
+
+        return counts;
+    }
+
+
+
+
+
 
 }
