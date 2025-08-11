@@ -4,5 +4,5 @@ public enum LawType {
     OSOLNAMA,
     NIAMNAMA,
     BUSINESS_ADS,
-    JARIDAS
+    JARIDA
 }
