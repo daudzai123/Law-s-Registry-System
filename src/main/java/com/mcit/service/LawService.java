@@ -1,6 +1,7 @@
 package com.mcit.service;
 
 import com.mcit.dto.LawDTO;
+import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
 import com.mcit.entity.MyUser;
@@ -19,6 +20,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,7 @@ public class LawService {
 
     private final LawRepository lawRepository;
     private final MyUserRepository userRepository;
+    private final FileStorageService fileStorageService;
 
     public LawDTO addLawFromDTO(LawDTO dto) {
         // Duplicate checks
@@ -215,6 +218,29 @@ public class LawService {
         results.forEach(row -> counts.put((LawType) row[0], (Long) row[1]));
 
         return counts;
+    }
+
+    public LawResponseDTO findByTitle(String title) {
+        Law law = lawRepository.findByTitleEng(title)
+                .or(() -> lawRepository.findByTitlePs(title))
+                .or(() -> lawRepository.findByTitleDr(title))
+                .orElseThrow(() -> new RuntimeException("Law not found with title: " + title));
+
+        LawResponseDTO dto = new LawResponseDTO();
+        dto.setId(law.getId());
+        dto.setType(law.getType());
+        dto.setSequenceNumber(law.getSequenceNumber());
+        dto.setTitleEng(law.getTitleEng());
+        dto.setTitlePs(law.getTitlePs());
+        dto.setTitleDr(law.getTitleDr());
+        dto.setPublishDate(law.getPublishDate());
+        dto.setStatus(law.getStatus());
+        dto.setDescription(law.getDescription());
+        dto.setAttachment(law.getAttachment());
+        dto.setAttachmentSize(fileStorageService.getFormattedFileSize(law.getAttachment()));
+        dto.setUserId(law.getUser().getId());
+
+        return dto;
     }
 
 

@@ -21,5 +21,6 @@ public class LawResponseDTO {
     private Status status;
     private String description;
     private String attachment;
+    private String attachmentSize;
     private Long userId;
 }

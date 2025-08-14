@@ -154,6 +154,7 @@ public class LawController {
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
+        dto.setAttachmentSize(fileStorageService.getFormattedFileSize(law.getAttachment()));
 
         if (law.getUser() != null) {
             dto.setUserId(law.getUser().getId());
@@ -233,6 +234,13 @@ public class LawController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    @GetMapping("/search/byTitle")
+    public ResponseEntity<LawResponseDTO> getLawByTitle(@RequestParam String title) {
+        LawResponseDTO dto = lawService.findByTitle(title);
+        return ResponseEntity.ok(dto);
+    }
+
 
 
 }

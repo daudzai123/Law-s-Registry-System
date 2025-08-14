@@ -12,17 +12,19 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificationExecutor<Law> {
 
     boolean existsBySequenceNumber(Long sequenceNumber);
-
     boolean existsByTitleEngIgnoreCase(String titleEng);
-
     boolean existsByTitlePsIgnoreCase(String titlePs);
-
     boolean existsByTitleDrIgnoreCase(String titleDr);
+
+    Optional<Law> findByTitleEng(String titleEng);
+    Optional<Law> findByTitlePs(String titlePs);
+    Optional<Law> findByTitleDr(String titleDr);
 
     long countByStatus(Status status);
 
@@ -49,8 +51,4 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
             "GROUP BY l.type")
     List<Object[]> countLawsByTypeForYearAndMonth(@Param("year") int year,
                                                   @Param("month") int month);
-
-
-
-
 }

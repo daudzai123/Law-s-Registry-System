@@ -90,6 +90,7 @@ public class SecurityConfiguration {
                     registry.requestMatchers(HttpMethod.GET, "/api/user/{id}").permitAll();
                     registry.requestMatchers(HttpMethod.POST, "/api/**").permitAll();
                     registry.requestMatchers("/api/verify-email").permitAll();
+                    registry.requestMatchers("/api/laws/**").permitAll();
                     registry.anyRequest().authenticated();
                 })
 
