@@ -1,6 +1,7 @@
 package com.mcit.repo;
 
 import com.mcit.entity.Law;
+import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,4 +52,12 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
             "GROUP BY l.type")
     List<Object[]> countLawsByTypeForYearAndMonth(@Param("year") int year,
                                                   @Param("month") int month);
+
+
+    @Query("SELECT l FROM Law l WHERE " +
+            "LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
+            "LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
+            "LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
+    List<Law> searchByTitle(@Param("title") String title);
+
 }

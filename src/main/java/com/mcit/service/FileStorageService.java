@@ -14,18 +14,52 @@ import java.nio.file.StandardCopyOption;
 @Service
 public class FileStorageService {
 
+    private static final long fileSize = 10 * 1024 * 1024; // 10MB
     private final Path fileStorageLocation;
 
     public FileStorageService() {
-        // Directory where you want to store uploaded files
         this.fileStorageLocation = Paths.get("D:\\Law's Registry System\\attachment")
                 .toAbsolutePath()
                 .normalize();
         try {
-            // Create the directory if it doesn't exist
             Files.createDirectories(this.fileStorageLocation);
         } catch (Exception ex) {
             throw new FileStorageException("Could not create the directory to store files", ex);
+        }
+    }
+
+    public String saveFile(MultipartFile file) {
+        validateFile(file);
+
+        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String extension = StringUtils.getFilenameExtension(originalFileName);
+        String baseName = originalFileName.replace("." + extension, "");
+
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String fileName = baseName + "_" + timestamp + "." + extension;
+
+        try {
+            Path targetLocation = this.fileStorageLocation.resolve(fileName);
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+            return fileName;
+        } catch (IOException ex) {
+            throw new FileStorageException("Could not store file " + fileName, ex);
+        }
+    }
+
+    private void validateFile(MultipartFile file) {
+        if (file.getSize() > fileSize) {
+            throw new FileStorageException("Attachment size exceeds 10MB limit.");
+        }
+
+        String contentType = file.getContentType();
+        String filename = file.getOriginalFilename();
+
+        boolean validContentType = "application/pdf".equalsIgnoreCase(contentType);
+        boolean validExtension = filename != null && filename.toLowerCase().endsWith(".pdf");
+
+        if (!(validContentType && validExtension)) {
+            throw new FileStorageException("Only PDF files are allowed.");
         }
     }
 
@@ -42,22 +76,6 @@ public class FileStorageService {
         }
     }
 
-    public String saveFile(MultipartFile file) {
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-        String extension = StringUtils.getFilenameExtension(originalFileName);
-        String baseName = originalFileName.replace("." + extension, "");
-
-        String timestamp = String.valueOf(System.currentTimeMillis());
-        String fileName = baseName + "_" + timestamp + "." + extension;
-
-        try {
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
-            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            return fileName; // return only file name
-        } catch (IOException ex) {
-            throw new FileStorageException("Could not store file " + fileName, ex);
-        }
-    }
 
     public void deleteFile(String fileName) {
         try {

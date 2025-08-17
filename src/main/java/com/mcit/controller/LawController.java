@@ -44,13 +44,6 @@ public class LawController {
     private final FileDownloadService fileDownloadService;
     private final ObjectMapper objectMapper; // Provided by Spring Boot auto-config
 
-    private static final long MAX_FILE_SIZE = 3 * 1024 * 1024; // 3 MB
-
-    /**
-     * Create a law from multipart/form-data:
-     * - law: JSON (LawDTO)
-     * - attachment: file (pdf/docx)
-     */
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> addLaw(
             @RequestPart("law") String lawJson,
@@ -71,38 +64,24 @@ public class LawController {
             throw new IllegalArgumentException("Attachment file is required.");
         }
 
-        // Validate attachment size
-        if (attachmentFile.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("Attachment size exceeds 3MB limit.");
-        }
-
-        // Validate file type
-        if (!isAllowedFile(attachmentFile)) {
-            throw new IllegalArgumentException("Only PDF and DOCX files are allowed.");
-        }
-
-        // Save file
+        // Save file (service will validate size + type internally)
         String savedFilename = fileStorageService.saveFile(attachmentFile);
         lawDTO.setAttachment(savedFilename);
 
-        // Save law (business-specific exception handled separately)
+        // Save law
         LawDTO saved = lawService.addLawFromDTO(lawDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // this function shows allowed files
     private boolean isAllowedFile(MultipartFile file) {
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename();
 
-        boolean validContentType = "application/pdf".equalsIgnoreCase(contentType) ||
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document".equalsIgnoreCase(contentType);
-
-        boolean validExtension = filename != null && filename.toLowerCase().matches(".*\\.(pdf|docx)$");
+        boolean validContentType = "application/pdf".equalsIgnoreCase(contentType);
+        boolean validExtension = filename != null && filename.toLowerCase().endsWith(".pdf");
 
         return validContentType && validExtension;
     }
-
 
     // ✅ 3. Find a law by ID
     @GetMapping("/{id}")
@@ -162,7 +141,6 @@ public class LawController {
 
         return dto;
     }
-
 
     // ✅ 4. Delete a law by ID
     @DeleteMapping("/{id}")
@@ -236,11 +214,8 @@ public class LawController {
     }
 
     @GetMapping("/search/byTitle")
-    public ResponseEntity<LawResponseDTO> getLawByTitle(@RequestParam String title) {
-        LawResponseDTO dto = lawService.findByTitle(title);
-        return ResponseEntity.ok(dto);
+    public ResponseEntity<List<LawResponseDTO>> searchByTitle(@RequestParam String title) {
+        return ResponseEntity.ok(lawService.searchByTitle(title));
     }
-
-
 
 }

@@ -220,12 +220,7 @@ public class LawService {
         return counts;
     }
 
-    public LawResponseDTO findByTitle(String title) {
-        Law law = lawRepository.findByTitleEng(title)
-                .or(() -> lawRepository.findByTitlePs(title))
-                .or(() -> lawRepository.findByTitleDr(title))
-                .orElseThrow(() -> new RuntimeException("Law not found with title: " + title));
-
+    private LawResponseDTO mapToDTO(Law law) {
         LawResponseDTO dto = new LawResponseDTO();
         dto.setId(law.getId());
         dto.setType(law.getType());
@@ -238,13 +233,20 @@ public class LawService {
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
         dto.setAttachmentSize(fileStorageService.getFormattedFileSize(law.getAttachment()));
-        dto.setUserId(law.getUser().getId());
+
+        if (law.getUser() != null) {
+            dto.setUserId(law.getUser().getId());
+        }
 
         return dto;
     }
 
-
-
+    public List<LawResponseDTO> searchByTitle(String title) {
+        List<Law> laws = lawRepository.searchByTitle(title);
+        return laws.stream()
+                .map(this::mapToDTO)
+                .toList();
+    }
 
 
 
