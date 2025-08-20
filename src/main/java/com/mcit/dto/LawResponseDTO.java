@@ -18,6 +18,10 @@ public class LawResponseDTO {
     private String titleDr;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate publishDate;
+
+    // Comes from frontend (Hijri string)
+    private String publishDateHijri;
+
     private Status status;
     private String description;
     private String attachment;

@@ -16,10 +16,15 @@ public class LawDTO {
     private String titlePs;
     private String titleDr;
     private Status status;
+
+    // Always Miladi in DB
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate publishDate;
+
+    // Comes from frontend (Hijri string)
+    private String publishDateHijri;
+
     private String description;
     private String attachment;
-    private Long userId; // instead of MyUser entity
+    private Long userId;
 }
-

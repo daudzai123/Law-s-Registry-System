@@ -1,5 +1,6 @@
 package com.mcit.service;
 
+import com.mcit.config.HijriShamsiConverter;
 import com.mcit.dto.LawDTO;
 import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -34,35 +36,46 @@ public class LawService {
     private final MyUserRepository userRepository;
     private final FileStorageService fileStorageService;
 
-    public LawDTO addLawFromDTO(LawDTO dto) {
-        // Duplicate checks
-        if (dto.getSequenceNumber() != null && lawRepository.existsBySequenceNumber(dto.getSequenceNumber())) {
-            throw new DuplicateLawException("Sequence number '" + dto.getSequenceNumber() + "' already exists.");
-        }
-        if (dto.getTitleEng() != null && lawRepository.existsByTitleEngIgnoreCase(dto.getTitleEng())) {
-            throw new DuplicateLawException("English title '" + dto.getTitleEng() + "' already exists.");
-        }
-        if (dto.getTitlePs() != null && lawRepository.existsByTitlePsIgnoreCase(dto.getTitlePs())) {
-            throw new DuplicateLawException("Pashto title '" + dto.getTitlePs() + "' already exists.");
-        }
-        if (dto.getTitleDr() != null && lawRepository.existsByTitleDrIgnoreCase(dto.getTitleDr())) {
-            throw new DuplicateLawException("Dari title '" + dto.getTitleDr() + "' already exists.");
-        }
+        public LawDTO addLawFromDTO(LawDTO dto) {
+            // Duplicate checks
+            if (dto.getSequenceNumber() != null && lawRepository.existsBySequenceNumber(dto.getSequenceNumber())) {
+                throw new DuplicateLawException("Sequence number '" + dto.getSequenceNumber() + "' already exists.");
+            }
+            if (dto.getTitleEng() != null && lawRepository.existsByTitleEngIgnoreCase(dto.getTitleEng())) {
+                throw new DuplicateLawException("English title '" + dto.getTitleEng() + "' already exists.");
+            }
+            if (dto.getTitlePs() != null && lawRepository.existsByTitlePsIgnoreCase(dto.getTitlePs())) {
+                throw new DuplicateLawException("Pashto title '" + dto.getTitlePs() + "' already exists.");
+            }
+            if (dto.getTitleDr() != null && lawRepository.existsByTitleDrIgnoreCase(dto.getTitleDr())) {
+                throw new DuplicateLawException("Dari title '" + dto.getTitleDr() + "' already exists.");
+            }
 
-        Law law = dtoToEntity(dto);
+            // ✅ Convert Hijri → Gregorian before saving
+            if (dto.getPublishDateHijri() != null) {
+                String[] parts = dto.getPublishDateHijri().split("-");
+                int year = Integer.parseInt(parts[0]);
+                int month = Integer.parseInt(parts[1]);
+                int day = Integer.parseInt(parts[2]);
 
-        // Ensure user exists
-        if (dto.getUserId() != null) {
-            MyUser user = userRepository.findById(dto.getUserId())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + dto.getUserId()));
-            law.setUser(user);
-        } else {
-            throw new IllegalArgumentException("User id is required.");
+                LocalDate miladiDate = HijriShamsiConverter.shamsiToGregorian(year, month, day);
+                dto.setPublishDate(miladiDate);
+            }
+
+            Law law = dtoToEntity(dto);
+
+            // Ensure user exists
+            if (dto.getUserId() != null) {
+                MyUser user = userRepository.findById(dto.getUserId())
+                        .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + dto.getUserId()));
+                law.setUser(user);
+            } else {
+                throw new IllegalArgumentException("User id is required.");
+            }
+
+            Law saved = lawRepository.save(law);
+            return toDTO(saved);
         }
-
-        Law saved = lawRepository.save(law);
-        return toDTO(saved);
-    }
 
 
     public Page<Law> searchLaws(LawSearchCriteriaDTO criteria, int page, int size, String[] sort) {
@@ -87,11 +100,9 @@ public class LawService {
         lawRepository.deleteById(id);
     }
 
-    // Mapping helpers
     public LawDTO toDTO(Law law) {
         if (law == null) return null;
         LawDTO dto = new LawDTO();
-        dto.setPublishDate(law.getPublishDate());
         dto.setId(law.getId());
         dto.setSequenceNumber(law.getSequenceNumber());
         dto.setTitleEng(law.getTitleEng());
@@ -102,8 +113,18 @@ public class LawService {
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
         dto.setUserId(law.getUser() != null ? law.getUser().getId() : null);
+
+        // Set Gregorian date
+        dto.setPublishDate(law.getPublishDate());
+
+        // ✅ Convert Gregorian to Hijri for response
+        if (law.getPublishDate() != null) {
+            dto.setPublishDateHijri(HijriShamsiConverter.gregorianToShamsi(law.getPublishDate()));
+        }
+
         return dto;
     }
+
 
     public Law dtoToEntity(LawDTO dto) {
         if (dto == null) return null;
@@ -229,6 +250,8 @@ public class LawService {
         dto.setTitlePs(law.getTitlePs());
         dto.setTitleDr(law.getTitleDr());
         dto.setPublishDate(law.getPublishDate());
+        dto.setPublishDateHijri(HijriShamsiConverter.gregorianToShamsi(law.getPublishDate()));
+
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
