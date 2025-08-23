@@ -1,6 +1,5 @@
 package com.mcit.service;
 
-import com.mcit.config.HijriShamsiConverter;
 import com.mcit.dto.LawDTO;
 import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
@@ -21,8 +20,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -51,17 +48,6 @@ public class LawService {
                 throw new DuplicateLawException("Dari title '" + dto.getTitleDr() + "' already exists.");
             }
 
-            // ✅ Convert Hijri → Gregorian before saving
-            if (dto.getPublishDateHijri() != null) {
-                String[] parts = dto.getPublishDateHijri().split("-");
-                int year = Integer.parseInt(parts[0]);
-                int month = Integer.parseInt(parts[1]);
-                int day = Integer.parseInt(parts[2]);
-
-                LocalDate miladiDate = HijriShamsiConverter.shamsiToGregorian(year, month, day);
-                dto.setPublishDate(miladiDate);
-            }
-
             Law law = dtoToEntity(dto);
 
             // Ensure user exists
@@ -76,7 +62,6 @@ public class LawService {
             Law saved = lawRepository.save(law);
             return toDTO(saved);
         }
-
 
     public Page<Law> searchLaws(LawSearchCriteriaDTO criteria, int page, int size, String[] sort) {
         Specification<Law> spec = LawSpecification.filterByCriteria(criteria);
@@ -116,15 +101,8 @@ public class LawService {
 
         // Set Gregorian date
         dto.setPublishDate(law.getPublishDate());
-
-        // ✅ Convert Gregorian to Hijri for response
-        if (law.getPublishDate() != null) {
-            dto.setPublishDateHijri(HijriShamsiConverter.gregorianToShamsi(law.getPublishDate()));
-        }
-
         return dto;
     }
-
 
     public Law dtoToEntity(LawDTO dto) {
         if (dto == null) return null;
@@ -250,8 +228,6 @@ public class LawService {
         dto.setTitlePs(law.getTitlePs());
         dto.setTitleDr(law.getTitleDr());
         dto.setPublishDate(law.getPublishDate());
-        dto.setPublishDateHijri(HijriShamsiConverter.gregorianToShamsi(law.getPublishDate()));
-
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
@@ -270,7 +246,5 @@ public class LawService {
                 .map(this::mapToDTO)
                 .toList();
     }
-
-
 
 }

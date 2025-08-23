@@ -1,7 +1,6 @@
 package com.mcit.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mcit.config.HijriShamsiConverter;
 import com.mcit.dto.LawDTO;
 import com.mcit.dto.LawPaginatedResponseDTO;
 import com.mcit.dto.LawResponseDTO;
@@ -45,35 +44,7 @@ public class LawController {
     private final FileDownloadService fileDownloadService;
     private final ObjectMapper objectMapper; // Provided by Spring Boot auto-config
 
-//    @PostMapping(consumes = {"multipart/form-data"})
-//    public ResponseEntity<?> addLaw(
-//            @RequestPart("law") String lawJson,
-//            @RequestPart(value = "attachment", required = false) MultipartFile attachmentFile
-//    ) throws IOException {
-//
-//        // Parse JSON
-//        LawDTO lawDTO = objectMapper.readValue(lawJson, LawDTO.class);
-//
-//        // Validate logged-in user
-//        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-//        MyUser user = userRepository.findByUsername(username)
-//                .orElseThrow(() -> new IllegalArgumentException("Invalid user."));
-//        lawDTO.setUserId(user.getId());
-//
-//        // Validate attachment presence
-//        if (attachmentFile == null || attachmentFile.isEmpty()) {
-//            throw new IllegalArgumentException("Attachment file is required.");
-//        }
-//
-//        // Save file (service will validate size + type internally)
-//        String savedFilename = fileStorageService.saveFile(attachmentFile);
-//        lawDTO.setAttachment(savedFilename);
-//
-//        // Save law
-//        LawDTO saved = lawService.addLawFromDTO(lawDTO);
-//        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
-//    }
-
+    // add new law
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<?> addLaw(
             @RequestPart("law") String lawJson,
@@ -96,30 +67,16 @@ public class LawController {
                         .body(Map.of("error", "Attachment file is required."));
             }
 
+            // ✅ Restrict file type/extension
+            if (!isAllowedFile(attachmentFile)) {
+                return ResponseEntity
+                        .status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Only PDF files are allowed."));
+            }
+
             // ✅ Save file (service validates size + type)
             String savedFilename = fileStorageService.saveFile(attachmentFile);
             lawDTO.setAttachment(savedFilename);
-
-            // ✅ Convert Hijri Shamsi → Gregorian before saving
-            if (lawDTO.getPublishDateHijri() != null && !lawDTO.getPublishDateHijri().isEmpty()) {
-                String[] parts = lawDTO.getPublishDateHijri().split("-");
-                if (parts.length == 3) {
-                    try {
-                        int year = Integer.parseInt(parts[0]);
-                        int month = Integer.parseInt(parts[1]);
-                        int day = Integer.parseInt(parts[2]);
-
-                        LocalDate miladiDate = HijriShamsiConverter.shamsiToGregorian(year, month, day);
-                        lawDTO.setPublishDate(miladiDate);
-                    } catch (NumberFormatException e) {
-                        throw new IllegalArgumentException("❌ Invalid Hijri Shamsi date format: " + lawDTO.getPublishDateHijri());
-                    }
-                } else {
-                    throw new IllegalArgumentException("❌ Hijri Shamsi date must be in format yyyy-MM-dd");
-                }
-            }
-
-
 
             // Save law
             LawDTO saved = lawService.addLawFromDTO(lawDTO);
@@ -131,7 +88,6 @@ public class LawController {
                     .body(Map.of("error", e.getMessage()));
         }
     }
-
 
     private boolean isAllowedFile(MultipartFile file) {
         String contentType = file.getContentType();
