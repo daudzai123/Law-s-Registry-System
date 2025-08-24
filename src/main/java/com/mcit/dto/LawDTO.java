@@ -5,7 +5,6 @@ import lombok.Data;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import java.time.LocalDate;
-import java.util.Date;
 
 @Data
 public class LawDTO {

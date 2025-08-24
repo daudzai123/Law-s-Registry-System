@@ -1,6 +1,7 @@
 package com.mcit.service;
 
 import com.mcit.entity.MyUser;
+import com.mcit.repo.MyUserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -8,71 +9,36 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CurrentUserInfoService {
+
     @Autowired
-    private  MyUserDetailService MyUserSer;
+    private MyUserRepository userRepository;
 
-
-    public MyUser getCurrentUser(){
+    public MyUser getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-            MyUser user=(MyUser) authentication.getPrincipal();
-            return user;
-        }
-        return null;
-    }
-    public Long getCurrentUserId(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-            MyUser user=(MyUser) authentication.getPrincipal();
-            return user.getId();
-        }
-        return null;
-    }
-    public String getCurrentUserFirstName(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-            MyUser user = (MyUser) authentication.getPrincipal();
-            return user.getFirstname();
-        }
-        return null;
-    }
-    public String getCurrentUserLastName(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-            MyUser user = (MyUser) authentication.getPrincipal();
-            return user.getLastname();
-        }
-        return null;
-    }
-    public String getCurrentUserEmail(){
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-            MyUser user = (MyUser) authentication.getPrincipal();
-            return user.getEmail();
+        if (authentication != null && authentication.isAuthenticated()) {
+            String username = authentication.getName(); // get the username from SecurityContext
+            return userRepository.findByUsername(username).orElse(null);
         }
         return null;
     }
 
+    public Long getCurrentUserId() {
+        MyUser user = getCurrentUser();
+        return user != null ? user.getId() : null;
+    }
 
+    public String getCurrentUserFirstName() {
+        MyUser user = getCurrentUser();
+        return user != null ? user.getFirstname() : null;
+    }
 
-//    public List<Long> getCurrentUserDepartmentIds(){
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-//            MyUser user = (MyUser) authentication.getPrincipal();
-//            return user.getDepartment().stream().map(department ->
-//                    department.getDepId()).collect(Collectors.toList());
-//        }
-//        return null;
-//    }
+    public String getCurrentUserLastName() {
+        MyUser user = getCurrentUser();
+        return user != null ? user.getLastname() : null;
+    }
 
-//    public List<Department> getCurrentUserDepartments(){
-//        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-//        if (authentication !=null && authentication.isAuthenticated() && authentication.getPrincipal() instanceof MyUser){
-//            MyUser user = (MyUser) authentication.getPrincipal();
-//            List<Department> departmentList = MyUserSer.getDepartmentsByUser(user.getId());
-//            return departmentList;
-//        }
-//        return null;
-//    }
-
+    public String getCurrentUserEmail() {
+        MyUser user = getCurrentUser();
+        return user != null ? user.getEmail() : null;
+    }
 }

@@ -1,5 +1,6 @@
 package com.mcit.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.mcit.enums.Role;
 import jakarta.persistence.*;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Entity
@@ -58,6 +60,4 @@ public class MyUser {
 
     @Column(name = "position")
     private String position;
-
-
 }
