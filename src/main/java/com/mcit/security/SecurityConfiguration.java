@@ -90,7 +90,8 @@ public class SecurityConfiguration {
                     registry.requestMatchers(HttpMethod.GET, "/api/user/{id}").permitAll();
                     registry.requestMatchers(HttpMethod.POST, "/api/**").permitAll();
                     registry.requestMatchers("/api/verify-email").permitAll();
-                    registry.requestMatchers("/api/laws/**").permitAll();
+                    registry.requestMatchers("/api/laws/download_attachment/**").permitAll();
+                    registry.requestMatchers("/api/laws/view_attachment/{id}").permitAll();
                     registry.anyRequest().authenticated();
                 })
 
@@ -102,9 +103,7 @@ public class SecurityConfiguration {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
-        configuration.setAllowedOriginPatterns(List.of("*")); // allow Swagger too
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // make sure frontend runs here
+        configuration.setAllowedOriginPatterns(List.of("*")); // allow all origins for testing
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
@@ -113,4 +112,5 @@ public class SecurityConfiguration {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
 }

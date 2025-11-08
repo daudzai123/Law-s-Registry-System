@@ -24,28 +24,25 @@ public class FileDownloadService {
     }
 
     public Resource loadFileById(Long id) {
+        Law fileRecord = lawRepository.findById(id)
+                .orElseThrow(() -> new FileStorageException("File with ID " + id + " not found."));
+
+        String attachmentPath = fileRecord.getAttachment();
+        if (attachmentPath == null || attachmentPath.isBlank()) {
+            throw new FileStorageException("No attachment found for record ID: " + id);
+        }
+
+        // Ensure only the filename is used to prevent path issues
+        Path filePath = fileStorageLocation.resolve(Paths.get(attachmentPath).getFileName()).normalize();
         try {
-            Law fileRecord = lawRepository.findById(id)
-                    .orElseThrow(() -> new FileStorageException("File with ID " + id + " not found in database."));
-
-            String attachmentPath = fileRecord.getAttachment();
-            if (attachmentPath == null || attachmentPath.isBlank()) {
-                throw new FileStorageException("No attachment found for record ID: " + id);
-            }
-
-            // Remove the base directory if stored path contains it
-            String fileName = attachmentPath.replace(fileStorageLocation.toString() + "\\", "");
-
-            Path filePath = fileStorageLocation.resolve(fileName).normalize();
             Resource resource = new UrlResource(filePath.toUri());
-
             if (!resource.exists() || !resource.isReadable()) {
-                throw new FileStorageException("File does not exist or is not readable: " + fileName);
+                throw new FileStorageException("File does not exist or is not readable: " + attachmentPath);
             }
-
             return resource;
         } catch (Exception ex) {
             throw new FileStorageException("Error loading file: " + ex.getMessage(), ex);
         }
     }
+
 }

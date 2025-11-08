@@ -240,4 +240,26 @@ public class LawController {
         return ResponseEntity.ok(lawService.searchByTitle(title));
     }
 
+    @GetMapping("/view_attachment/{id}")
+    public ResponseEntity<Resource> viewAttachment(@PathVariable Long id) {
+        Resource resource = fileDownloadService.loadFileById(id);
+
+        // Determine content type based on file extension
+        String contentType = "application/octet-stream"; // default
+        String filename = resource.getFilename();
+        if (filename != null) {
+            String lowerName = filename.toLowerCase();
+            if (lowerName.endsWith(".pdf")) contentType = "application/pdf";
+            else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) contentType = "image/jpeg";
+            else if (lowerName.endsWith(".png")) contentType = "image/png";
+            else if (lowerName.endsWith(".txt")) contentType = "text/plain";
+            // add more types if needed
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .body(resource);
+    }
+
 }
