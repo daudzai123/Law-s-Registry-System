@@ -5,6 +5,10 @@ import com.mcit.entity.MyUser;
 import com.mcit.repo.MyUserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -52,8 +57,6 @@ public class MyUserDetailService implements UserDetailsService {
         );
     }
 
-
-
     public void changePassword(String identifier, ChangePasswordRequest request) {
         Optional<MyUser> userOpt = repository.findByUsername(identifier);
         if (userOpt.isEmpty()) {
@@ -72,5 +75,28 @@ public class MyUserDetailService implements UserDetailsService {
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         repository.save(user);
     }
+
+    // ========== PAGINATION & SEARCH METHODS ==========
+
+    public Page<MyUser> getUsersPaginated(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findAll(pageable);
+    }
+
+    public Page<MyUser> getUsersSorted(int page, int size, String sortBy) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+        return repository.findAll(pageable);
+    }
+
+    public Page<MyUser> searchUsersPaginated(String username, int page, int size, String sortBy) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
+        return repository.findByUsernameContainingIgnoreCase(username, pageable);
+    }
+
+    public MyUser findByUsername(String username) {
+        return repository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+    }
+
 
 }

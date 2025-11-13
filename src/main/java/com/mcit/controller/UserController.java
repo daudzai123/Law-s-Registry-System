@@ -10,6 +10,7 @@ import com.mcit.repo.MyUserRepository;
 import com.mcit.service.ForgotPasswordService;
 import com.mcit.service.MyUserDetailService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
 import org.springframework.data.util.ReflectionUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,10 +19,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -38,11 +36,11 @@ public class UserController {
         this.forgotPasswordService = forgotPasswordService;
     }
 
-    // get all users
-    @GetMapping("/users")
-    public List<MyUser> getAllUsers() {
-        return myUserRepository.findAll();
-    }
+//    // get all users
+//    @GetMapping("/users")
+//    public List<MyUser> getAllUsers() {
+//        return myUserRepository.findAll();
+//    }
 
     //get specific user
     @GetMapping("/user/{id}")
@@ -169,4 +167,35 @@ public class UserController {
 
         return ResponseEntity.ok(stats);
     }
+
+    // Pagination and Search endpoints
+    @GetMapping("/paginated")
+    public Page<MyUser> getUsersPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return myUserDetailService.getUsersPaginated(page, size);
+    }
+
+    @GetMapping("/sorted")
+    public Page<MyUser> getUsersSorted(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "id") String sortBy) {
+        return myUserDetailService.getUsersSorted(page, size, sortBy);
+    }
+
+    @GetMapping("/search")
+    public List<MyUser> searchUsers(@RequestParam String username) {
+        return Collections.singletonList(myUserDetailService.findByUsername(username));
+    }
+
+    @GetMapping("/search-paginated")
+    public Page<MyUser> searchUsersPaginated(
+            @RequestParam String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "id") String sortBy) {
+        return myUserDetailService.searchUsersPaginated(username, page, size, sortBy);
+    }
+
 }

@@ -38,9 +38,7 @@ public class LawService {
             if (dto.getSequenceNumber() != null && lawRepository.existsBySequenceNumber(dto.getSequenceNumber())) {
                 throw new DuplicateLawException("Sequence number '" + dto.getSequenceNumber() + "' already exists.");
             }
-            if (dto.getTitleEng() != null && lawRepository.existsByTitleEngIgnoreCase(dto.getTitleEng())) {
-                throw new DuplicateLawException("English title '" + dto.getTitleEng() + "' already exists.");
-            }
+
             if (dto.getTitlePs() != null && lawRepository.existsByTitlePsIgnoreCase(dto.getTitlePs())) {
                 throw new DuplicateLawException("Pashto title '" + dto.getTitlePs() + "' already exists.");
             }

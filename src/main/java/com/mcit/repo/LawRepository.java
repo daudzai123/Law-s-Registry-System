@@ -54,10 +54,20 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
                                                   @Param("month") int month);
 
 
-    @Query("SELECT l FROM Law l WHERE " +
-            "LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
-            "LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
-            "LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
+//    @Query("SELECT l FROM Law l WHERE " +
+//            "LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
+//            "LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
+//            "LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
+//    List<Law> searchByTitle(@Param("title") String title);
+
+    @Query("""
+    SELECT l FROM Law l
+    WHERE
+        (:title IS NULL OR LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')))
+        OR (:title IS NULL OR LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')))
+        OR (:title IS NULL OR LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%')))
+    """)
     List<Law> searchByTitle(@Param("title") String title);
+
 
 }

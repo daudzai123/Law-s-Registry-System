@@ -27,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -182,22 +184,6 @@ public class LawController {
         }
     }
 
-    // download the law attachment
-    @GetMapping("/download_attachment/{id}")
-    public ResponseEntity<Resource> downloadAttachment(@PathVariable Long id) {
-        Resource resource = fileDownloadService.loadFileById(id);
-
-        String contentType = "application/octet-stream";
-        try {
-            contentType = resource.getURL().openConnection().getContentType();
-        } catch (Exception ignored) {}
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-                .body(resource);
-    }
-
     @GetMapping("/status-counts")
     public ResponseEntity<Map<Status, Long>> getLawStatusCounts() {
         Map<Status, Long> counts = lawService.getLawCountsByStatus();
@@ -240,26 +226,50 @@ public class LawController {
         return ResponseEntity.ok(lawService.searchByTitle(title));
     }
 
+    // download the law attachment
+    @GetMapping("/download_attachment/{id}")
+    public ResponseEntity<Resource> downloadAttachment(@PathVariable Long id) {
+        Resource resource = fileDownloadService.loadFileById(id);
+
+        String contentType = "application/octet-stream";
+        try {
+            contentType = resource.getURL().openConnection().getContentType();
+        } catch (Exception ignored) {}
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
+    }
+
+    // view attachment
     @GetMapping("/view_attachment/{id}")
     public ResponseEntity<Resource> viewAttachment(@PathVariable Long id) {
         Resource resource = fileDownloadService.loadFileById(id);
+        if (resource == null || !resource.exists()) {
+            return ResponseEntity.notFound().build();
+        }
 
-        // Determine content type based on file extension
-        String contentType = "application/octet-stream"; // default
         String filename = resource.getFilename();
-        if (filename != null) {
-            String lowerName = filename.toLowerCase();
-            if (lowerName.endsWith(".pdf")) contentType = "application/pdf";
-            else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) contentType = "image/jpeg";
-            else if (lowerName.endsWith(".png")) contentType = "image/png";
-            else if (lowerName.endsWith(".txt")) contentType = "text/plain";
-            // add more types if needed
+        String contentType = "application/octet-stream"; // default fallback
+
+        try {
+            // Try to detect MIME type from the actual file
+            Path path = resource.getFile().toPath();
+            String detectedType = Files.probeContentType(path);
+            if (detectedType != null) {
+                contentType = detectedType;
+            }
+        } catch (IOException e) {
+            // keep default if detection fails
         }
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
+                // ✅ If you want to **display** instead of download, use inline
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
                 .body(resource);
     }
+
 
 }

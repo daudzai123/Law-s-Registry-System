@@ -30,13 +30,13 @@ public class BackupController{
         backupService.generateBackup(response);
    }
 
-   @RequestMapping("/{fileName:.+}")
+   @GetMapping("/{fileName:.+}")
    public String BackupDownload(HttpServletResponse response, @PathVariable String fileName) throws IOException {
        backupService.downloadSql(response,fileName);
        return "Backup downloaded successfully";
    }
 
-    @RequestMapping("/restore/{fileName:.+}")
+    @GetMapping("/restore/{fileName:.+}")
     public String RestoreBackup(@PathVariable String fileName) throws IOException, InterruptedException {
         return backupService.restoreDB(fileName);
     }

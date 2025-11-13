@@ -33,7 +33,7 @@ public class Law {
     @Column(name = "sequence_number", nullable = false)
     private Long sequenceNumber;
 
-    @Column(name = "title_eng", nullable = false)
+    @Column(name = "title_eng", nullable = true)
     private String titleEng;
 
     @Column(name = "title_ps", nullable = false)

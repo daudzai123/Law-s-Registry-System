@@ -32,10 +32,17 @@ public class CurrentUserInfoService {
         return user != null ? user.getFirstname() : null;
     }
 
+    // ✅ New method to get current user's username
+    public String getCurrentUserUsername() {
+        MyUser user = getCurrentUser();
+        return user != null ? user.getUsername() : null;
+    }
+
     public String getCurrentUserLastName() {
         MyUser user = getCurrentUser();
         return user != null ? user.getLastname() : null;
     }
+
 
     public String getCurrentUserEmail() {
         MyUser user = getCurrentUser();
