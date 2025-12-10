@@ -220,7 +220,6 @@ public class LawController {
         }
     }
 
-
     @GetMapping("/search/byTitle")
     public ResponseEntity<List<LawResponseDTO>> searchByTitle(@RequestParam String title) {
         return ResponseEntity.ok(lawService.searchByTitle(title));
