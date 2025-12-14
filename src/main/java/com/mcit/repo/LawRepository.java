@@ -27,6 +27,14 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
     Optional<Law> findByTitlePs(String titlePs);
     Optional<Law> findByTitleDr(String titleDr);
 
+    @Query("""
+        SELECT l FROM Law l
+        WHERE l.titleEng = :title
+           OR l.titlePs = :title
+           OR l.titleDr = :title
+    """)
+    Optional<Law> findByExactTitle(@Param("title") String title);
+
     long countByStatus(Status status);
 
     // Count laws grouped by status (no change)
@@ -53,12 +61,6 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
     List<Object[]> countLawsByTypeForYearAndMonth(@Param("year") int year,
                                                   @Param("month") int month);
 
-
-//    @Query("SELECT l FROM Law l WHERE " +
-//            "LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
-//            "LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR " +
-//            "LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
-//    List<Law> searchByTitle(@Param("title") String title);
 
     @Query("""
     SELECT l FROM Law l

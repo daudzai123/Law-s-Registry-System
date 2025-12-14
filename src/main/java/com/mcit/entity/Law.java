@@ -14,12 +14,12 @@ import java.util.Date;
 
 @Data
 @Entity
-@Table(name = "laws", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "sequence_number"),
-        @UniqueConstraint(columnNames = "title_eng"),
-        @UniqueConstraint(columnNames = "title_ps"),
-        @UniqueConstraint(columnNames = "title_dr")
-})
+@Table(
+        name = "laws",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = "sequence_number")
+        }
+)
 public class Law {
 
     @Id
