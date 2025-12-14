@@ -34,8 +34,10 @@ public class SecurityConfiguration {
         this.userDetailService = userDetailService;
     }
 
+    /* -------------------- Common Beans -------------------- */
+
     @Bean
-    public ModelMapper mapper(){
+    public ModelMapper modelMapper() {
         return new ModelMapper();
     }
 
@@ -50,7 +52,8 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config)
+            throws Exception {
         return config.getAuthenticationManager();
     }
 
@@ -67,32 +70,48 @@ public class SecurityConfiguration {
         return provider;
     }
 
+    /* -------------------- Security Filter Chain -------------------- */
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        return httpSecurity
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // IMPORTANT: Explicitly register your AuthenticationProvider
                 .authenticationProvider(authenticationProvider())
+
                 .authorizeHttpRequests(registry -> {
+
+                    // ✅ allow CORS preflight
+                    registry.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+
+                    // ✅ public endpoints
                     registry.requestMatchers(
                             "/home",
                             "/api/register/**",
                             "/api/authenticate",
-                            "/v3/api-docs/**",
-                            "/v3/api-docs.yaml",
+                            "/api/verify-email",
+                            "/api/users/**",
+                            "/api/account/**",
+                            "/api/laws/download_attachment/**",
+                            "/api/laws/view_attachment/**",
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/swagger-ui/index.html",
+                            "/v3/api-docs/**",
+                            "/v3/api-docs.yaml",
                             "/webjars/**"
                     ).permitAll();
-                    registry.requestMatchers("/api/users/**", "/api/account/**").permitAll();
-                    registry.requestMatchers(HttpMethod.GET, "/api/user/{id}").permitAll();
-                    registry.requestMatchers(HttpMethod.POST, "/api/**").permitAll();
-                    registry.requestMatchers("/api/verify-email").permitAll();
-                    registry.requestMatchers("/api/laws/download_attachment/**").permitAll();
-                    registry.requestMatchers("/api/laws/view_attachment/{id}").permitAll();
-                    registry.anyRequest().authenticated();
+
+                    // ✅ static frontend files (if any)
+                    registry.requestMatchers(
+                            "/", "/index.html", "/static/**", "/assets/**", "/favicon.ico"
+                    ).permitAll();
+
+                    // 🔐 secure all remaining API endpoints
+                    registry.requestMatchers("/api/**").authenticated();
+
+                    // allow anything else
+                    registry.anyRequest().permitAll();
                 })
 
                 .formLogin(AbstractHttpConfigurer::disable)
@@ -100,17 +119,33 @@ public class SecurityConfiguration {
                 .build();
     }
 
+    /* -------------------- CORS Configuration -------------------- */
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(List.of("*")); // allow all origins for testing
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+//                "https://localhost:3000",
+                "http://103.132.98.92:3000",
+//                "https://103.132.98.92:3000",
+                "http://103.132.98.92"
+//                "https://103.132.98.92",
+//                "http://ictinnovation.gov.af",
+//                "https://ictinnovation.gov.af"
+        ));
+
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
 }
