@@ -23,7 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/users")
 public class UserController {
 
     private final MyUserRepository myUserRepository;
@@ -36,20 +36,8 @@ public class UserController {
         this.forgotPasswordService = forgotPasswordService;
     }
 
-//    // get all users
-//    @GetMapping("/users")
-//    public List<MyUser> getAllUsers() {
-//        return myUserRepository.findAll();
-//    }
-
-    //get specific user
-    @GetMapping("/user/{id}")
-    public Optional<MyUser> getUserById(@PathVariable Long id) {
-        return myUserRepository.findById(id);
-    }
-
     //partial update
-    @PatchMapping("/user/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
         Optional<MyUser> existingUserOpt = myUserRepository.findById(id);
 
@@ -91,85 +79,14 @@ public class UserController {
         return ResponseEntity.ok(user);
     }
 
-    // Delete user by id
-    @DeleteMapping("/users/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        if (!myUserRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        myUserRepository.deleteById(id);
-
-        return ResponseEntity
-                .noContent()
-                .build();
-    }
-
-    // endpoint for getting roles enum
-    @GetMapping("/enums/roles")
-    public ResponseEntity<List<Map<String, String>>> getRoles() {
-        List<Map<String, String>> roles = Arrays.stream(Role.values())
-                .map(role -> Map.of("name", role.getDisplayName(), "value", role.name()))
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(roles);
-    }
-
-    // validate otp endpoint
-    @PostMapping("users/validate-otp-code")
-    public ResponseEntity<String> validateOtpCode(@Valid @RequestBody ResetPasswordRequest request) {
-        return forgotPasswordService.validateOtpCode(request);
-    }
-
-    // reset password end point
-    @PostMapping("users/reset-password")
-    public ResponseEntity<String> requestPasswordReset(
-            @RequestHeader("Authorization") String resetToken, // Get token from header
-            @Valid @RequestBody ResetPasswordRequest request) {
-
-        return forgotPasswordService.requestPasswordReset(resetToken, request);
-    }
-
-    // Forgot Password Endpoint
-    @PostMapping("/users/forgot-password")
-    public ResponseEntity<String> createAndSendOtpCodeToEmail(
-            @Valid @RequestBody ResetPasswordOTPRequest request) {
-        ResponseEntity<String> result = forgotPasswordService.createOtpCode(request);
-
-        // Simply return the result directly since result already contains status and body
-        return result;
-    }
-
-
-    // change password endpoint
-    @PutMapping("users/change-password")
-    public ResponseEntity<String> changePassword(
-            @RequestBody ChangePasswordRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        // Perform password change logic
-        myUserDetailService.changePassword(userDetails.getUsername(), request);
-
-        // Return a success response
-        return ResponseEntity.ok("Password changed successfully.");
-    }
-
-    @GetMapping("/users/count-user-status")
-    public ResponseEntity<Map<String, Long>> getUserStats() {
-        long activeCount = myUserRepository.countByIsActiveTrue();
-        long inactiveCount = myUserRepository.countByIsActiveFalse();
-        long totalCount = myUserRepository.count(); // built-in method
-
-        Map<String, Long> stats = Map.of(
-                "activeUsers", activeCount,
-                "inactiveUsers", inactiveCount,
-                "totalUsers", totalCount
-        );
-
-        return ResponseEntity.ok(stats);
+    //get specific user
+    @GetMapping("/{id}")
+    public Optional<MyUser> getUserById(@PathVariable Long id) {
+        return myUserRepository.findById(id);
     }
 
     // Pagination and Search endpoints
-    @GetMapping("/paginated")
+    @GetMapping
     public Page<MyUser> getUsersPaginated(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size) {
@@ -198,4 +115,82 @@ public class UserController {
         return myUserDetailService.searchUsersPaginated(username, page, size, sortBy);
     }
 
+
+    // Delete user by id
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        if (!myUserRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        myUserRepository.deleteById(id);
+
+        return ResponseEntity
+                .noContent()
+                .build();
+    }
+
+    // endpoint for getting roles enum
+    @GetMapping("/enums/roles")
+    public ResponseEntity<List<Map<String, String>>> getRoles() {
+        List<Map<String, String>> roles = Arrays.stream(Role.values())
+                .map(role -> Map.of("name", role.getDisplayName(), "value", role.name()))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(roles);
+    }
+
+    // validate otp endpoint
+    @PostMapping("/validate-otp-code")
+    public ResponseEntity<String> validateOtpCode(@Valid @RequestBody ResetPasswordRequest request) {
+        return forgotPasswordService.validateOtpCode(request);
+    }
+
+    // reset password end point
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> requestPasswordReset(
+            @RequestHeader("Authorization") String resetToken, // Get token from header
+            @Valid @RequestBody ResetPasswordRequest request) {
+
+        return forgotPasswordService.requestPasswordReset(resetToken, request);
+    }
+
+    // Forgot Password Endpoint
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> createAndSendOtpCodeToEmail(
+            @Valid @RequestBody ResetPasswordOTPRequest request) {
+        ResponseEntity<String> result = forgotPasswordService.createOtpCode(request);
+
+        // Simply return the result directly since result already contains status and body
+        return result;
+    }
+
+    // change password endpoint
+    @PutMapping("/change-password")
+    public ResponseEntity<String> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        // Perform password change logic
+        myUserDetailService.changePassword(userDetails.getUsername(), request);
+
+        // Return a success response
+        return ResponseEntity.ok("Password changed successfully.");
+    }
+
+
+
+    @GetMapping("/count-user-status")
+    public ResponseEntity<Map<String, Long>> getUserStats() {
+        long activeCount = myUserRepository.countByIsActiveTrue();
+        long inactiveCount = myUserRepository.countByIsActiveFalse();
+        long totalCount = myUserRepository.count(); // built-in method
+
+        Map<String, Long> stats = Map.of(
+                "activeUsers", activeCount,
+                "inactiveUsers", inactiveCount,
+                "totalUsers", totalCount
+        );
+
+        return ResponseEntity.ok(stats);
+    }
 }
