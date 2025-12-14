@@ -48,20 +48,6 @@ public class LawService {
             );
         }
 
-        if (dto.getTitlePs() != null &&
-                lawRepository.existsByTitlePsIgnoreCase(dto.getTitlePs())) {
-            throw new DuplicateLawException(
-                    "Pashto title '" + dto.getTitlePs() + "' already exists."
-            );
-        }
-
-        if (dto.getTitleDr() != null &&
-                lawRepository.existsByTitleDrIgnoreCase(dto.getTitleDr())) {
-            throw new DuplicateLawException(
-                    "Dari title '" + dto.getTitleDr() + "' already exists."
-            );
-        }
-
         Law law = dtoToEntity(dto);
 
         // Validate user

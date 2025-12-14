@@ -124,15 +124,39 @@ public class ForgotPasswordService {
             MimeMessage message = javaMailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom("safi.address@gmail.com");
+            helper.setFrom("idreesdaudzai2000@gmail.com");
             helper.setTo(recipientEmail);
-            helper.setSubject("Password Reset OTP");
+            helper.setSubject("Password Reset OTP | Law MIS");
 
-            String body = "<p>Hi dear <strong>" + firstName + " " + lastName + "</strong>,</p>" +
-                    "<p>Please use this <span style='font-weight: bold; font-size: 24px; color: black;'>" + otpCode +
-                    "</span> as your 6-digit code to reset your password.</p>" +
-                    "<p>This OTP is valid for <strong>5 minutes</strong>. Do not share it with anyone.</p>" +
-                    "<p>Thanks,<br>Innovation Management Team</p>";
+            String body =  "<div style='font-family: Arial, Helvetica, sans-serif; background-color: #f4f6f8; padding: 20px;'>" +
+                    "  <div style='max-width: 600px; margin: auto; background-color: #ffffff; padding: 30px; border-radius: 6px;'>" +
+
+                    "    <h2 style='color: #2c3e50; margin-bottom: 20px;'>Password Reset Request</h2>" +
+
+                    "    <p style='font-size: 14px; color: #333;'>Dear <strong>" + firstName + " " + lastName + "</strong>,</p>" +
+
+                    "    <p style='font-size: 14px; color: #333;'>We received a request to reset your password for your account.</p>" +
+
+                    "    <p style='font-size: 14px; color: #333;'>Please use the following One-Time Password (OTP) to proceed:</p>" +
+
+                    "    <div style='text-align: center; margin: 30px 0;'>" +
+                    "      <span style='display: inline-block; font-size: 28px; letter-spacing: 6px; font-weight: bold; color: #000; padding: 12px 24px; border: 1px solid #ccc; border-radius: 4px;'>" +
+                    otpCode +
+                    "      </span>" +
+                    "    </div>" +
+
+                    "    <p style='font-size: 14px; color: #333;'>This OTP is valid for <strong>5 minutes</strong>. For your security, please do not share this code with anyone.</p>" +
+
+                    "    <p style='font-size: 14px; color: #333;'>If you did not request a password reset, please ignore this email.</p>" +
+
+                    "    <hr style='border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;' />" +
+
+                    "    <p style='font-size: 13px; color: #555;'>Regards,<br>" +
+                    "    <strong>Law Management System</strong><br>" +
+                    "    Ministry of Law and Justice</p>" +
+
+                    "  </div>" +
+                    "</div>";
 
             helper.setText(body, true);
             javaMailSender.send(message);
