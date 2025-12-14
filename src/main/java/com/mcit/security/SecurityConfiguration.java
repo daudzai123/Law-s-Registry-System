@@ -83,6 +83,8 @@ public class SecurityConfiguration {
 
                     // ✅ allow CORS preflight
                     registry.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                    registry.requestMatchers(HttpMethod.GET, "/api/laws/**").permitAll();
+
 
                     // ✅ public endpoints
                     registry.requestMatchers(
@@ -99,7 +101,8 @@ public class SecurityConfiguration {
                             "/swagger-ui/index.html",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml",
-                            "/webjars/**"
+                            "/webjars/**",
+                            "/api/laws"
                     ).permitAll();
 
                     // ✅ static frontend files (if any)
