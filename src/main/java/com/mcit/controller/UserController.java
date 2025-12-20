@@ -1,8 +1,6 @@
 package com.mcit.controller;
 
-import com.mcit.dto.ChangePasswordRequest;
-import com.mcit.dto.ResetPasswordOTPRequest;
-import com.mcit.dto.ResetPasswordRequest;
+import com.mcit.dto.*;
 import com.mcit.entity.MyUser;
 import com.mcit.enums.Role;
 import com.mcit.repo.ForgotPasswordRepository;
@@ -87,11 +85,44 @@ public class UserController {
 
     // Pagination and Search endpoints
     @GetMapping
-    public Page<MyUser> getUsersPaginated(
+    public ResponseEntity<PaginatedResponseDTO<UserResponseDTO>> getUsersPaginated(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size) {
-        return myUserDetailService.getUsersPaginated(page, size);
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id,asc") String[] sort
+    ) {
+        Page<MyUser> result = myUserDetailService.getUsersPaginated(page, size, sort);
+
+        List<UserResponseDTO> users = result.getContent()
+                .stream()
+                .map(this::mapToUserDTO)
+                .toList();
+
+        return ResponseEntity.ok(
+                new PaginatedResponseDTO<>(
+                        users,
+                        result.getNumber(),
+                        result.getSize(),
+                        result.getTotalElements(),
+                        result.getTotalPages(),
+                        result.hasNext(),
+                        result.hasPrevious()
+                )
+        );
     }
+
+    private UserResponseDTO mapToUserDTO(MyUser user) {
+        UserResponseDTO dto = new UserResponseDTO();
+        dto.setId(user.getId());
+        dto.setFirstname(user.getFirstname());
+        dto.setLastname(user.getLastname());
+        dto.setEmail(user.getEmail());
+        dto.setUsername(user.getUsername());
+        dto.setRole(user.getRole().name());
+        dto.setActive(user.getIsActive());
+        dto.setPosition(user.getPosition());
+        return dto;
+    }
+
 
     @GetMapping("/sorted")
     public Page<MyUser> getUsersSorted(

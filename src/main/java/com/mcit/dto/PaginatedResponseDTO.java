@@ -7,7 +7,7 @@ import java.util.List;
 
 @Data
 @AllArgsConstructor
-public class LawPaginatedResponseDTO<T> {
+public class PaginatedResponseDTO<T> {
     private List<T> content;
     private int pageNumber;
     private int pageSize;

@@ -23,10 +23,6 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
     boolean existsByTitlePsIgnoreCase(String titlePs);
     boolean existsByTitleDrIgnoreCase(String titleDr);
 
-    Optional<Law> findByTitleEng(String titleEng);
-    Optional<Law> findByTitlePs(String titlePs);
-    Optional<Law> findByTitleDr(String titleDr);
-
     @Query("""
         SELECT l FROM Law l
         WHERE l.titleEng = :title

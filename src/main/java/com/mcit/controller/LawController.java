@@ -2,7 +2,7 @@ package com.mcit.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mcit.dto.LawDTO;
-import com.mcit.dto.LawPaginatedResponseDTO;
+import com.mcit.dto.PaginatedResponseDTO;
 import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
 import com.mcit.entity.Law;
@@ -14,7 +14,6 @@ import com.mcit.repo.MyUserRepository;
 import com.mcit.service.FileDownloadService;
 import com.mcit.service.FileStorageService;
 import com.mcit.service.LawService;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -26,13 +25,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -104,10 +99,10 @@ public class LawController {
     }
 
     @GetMapping
-    public ResponseEntity<LawPaginatedResponseDTO<LawResponseDTO>> searchLaws(
+    public ResponseEntity<PaginatedResponseDTO<LawResponseDTO>> searchLaws(
             LawSearchCriteriaDTO criteria,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size,
+            @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id,asc") String[] sort
     ) {
 
@@ -119,7 +114,7 @@ public class LawController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(
-                new LawPaginatedResponseDTO<>(
+                new PaginatedResponseDTO<>(
                         laws,
                         result.getNumber(),
                         result.getSize(),
@@ -165,11 +160,22 @@ public class LawController {
        ========================================================= */
 
     @GetMapping("/search/byTitle")
-    public ResponseEntity<List<LawResponseDTO>> searchByTitle(
-            @RequestParam String title
-    ) {
-        return ResponseEntity.ok(lawService.searchByTitle(title));
+    public ResponseEntity<?> searchByTitle(@RequestParam String title) {
+
+        List<LawResponseDTO> results = lawService.searchByTitle(title);
+
+        if (results == null || results.isEmpty()) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(Map.of(
+                            "message", "No law found with title containing: " + title
+                    ));
+        }
+
+        return ResponseEntity.ok(results);
     }
+
+
 
     @GetMapping("/search/exact-title")
     public ResponseEntity<?> searchByExactTitle(

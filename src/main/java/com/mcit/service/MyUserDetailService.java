@@ -1,6 +1,7 @@
 package com.mcit.service;
 
 import com.mcit.dto.ChangePasswordRequest;
+import com.mcit.dto.UserResponseDTO;
 import com.mcit.entity.MyUser;
 import com.mcit.repo.MyUserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import javax.swing.*;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -78,8 +80,14 @@ public class MyUserDetailService implements UserDetailsService {
 
     // ========== PAGINATION & SEARCH METHODS ==========
 
-    public Page<MyUser> getUsersPaginated(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
+    public Page<MyUser> getUsersPaginated(int page, int size, String[] sort) {
+
+        Sort sortOrder = Sort.by(
+                Sort.Direction.fromString(sort[1]),
+                sort[0]
+        );
+
+        Pageable pageable = PageRequest.of(page, size, sortOrder);
         return repository.findAll(pageable);
     }
 
@@ -97,6 +105,5 @@ public class MyUserDetailService implements UserDetailsService {
         return repository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
-
 
 }

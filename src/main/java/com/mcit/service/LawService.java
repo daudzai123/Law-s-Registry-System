@@ -8,6 +8,7 @@ import com.mcit.entity.MyUser;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import com.mcit.exception.DuplicateLawException;
+import com.mcit.exception.ResourceNotFoundException;
 import com.mcit.repo.LawRepository;
 import com.mcit.repo.MyUserRepository;
 import com.mcit.specification.LawSpecification;
@@ -111,11 +112,21 @@ public class LawService {
     }
 
     public List<LawResponseDTO> searchByTitle(String title) {
-        return lawRepository.searchByTitle(title)
+
+        List<LawResponseDTO> results = lawRepository.searchByTitle(title)
                 .stream()
                 .map(this::mapToResponseDTOWithSize)
                 .toList();
+
+        if (results.isEmpty()) {
+            throw new ResourceNotFoundException(
+                    "No law found with title containing: " + title
+            );
+        }
+
+        return results;
     }
+
 
     public LawResponseDTO findByExactTitle(String title) {
         Law law = lawRepository.findByExactTitle(title)
