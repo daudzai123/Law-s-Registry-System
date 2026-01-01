@@ -1,25 +1,13 @@
 package com.mcit.entity;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.time.LocalDate;
-import java.util.Date;
-
-@Data
 @Entity
-@Table(
-        name = "laws",
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = "sequence_number")
-        }
-)
+@Table(name = "laws")
+@Data
 public class Law {
 
     @Id
@@ -27,37 +15,32 @@ public class Law {
     private Long id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "type")
     private LawType type;
 
-    @Column(name = "sequence_number", nullable = false)
+    @Column(name = "sequence_number")
     private Long sequenceNumber;
 
-    @Column(name = "title_eng", nullable = true)
     private String titleEng;
 
-    @Column(name = "title_ps", nullable = false)
+    @Column(nullable = false)
     private String titlePs;
 
-    @Column(name = "title_dr", nullable = false)
+    @Column(nullable = false)
     private String titleDr;
 
     @Column(name = "publish_date", nullable = false)
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate publishDate;
-
+    private String publishDate; // Hijri-Qamari only
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
     private Status status;
 
-    @Column(name = "description", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "attachment")
     private String attachment;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private MyUser user;
+    @JoinColumn(nullable = false)
+    private User user;
+
 }

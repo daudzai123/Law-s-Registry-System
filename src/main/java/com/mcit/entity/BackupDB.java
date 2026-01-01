@@ -28,6 +28,7 @@ public class BackupDB {
                     "profileImage","email","password" },
             allowSetters = true
     )
-    private MyUser creator;
+
+    private User creator;
 
 }

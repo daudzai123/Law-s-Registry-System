@@ -21,5 +21,5 @@ public class ForgotPassword {
         // Many-to-One relationship with User
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "user_id", nullable = false)
-        private MyUser user;
+        private User user;
 }

@@ -115,6 +115,13 @@
 		<dependency>
 			<groupId>com.ibm.icu</groupId>
 			<artifactId>icu4j</artifactId>
+			<version>74.2</version>
+		</dependency>
+
+
+		<dependency>
+			<groupId>com.ibm.icu</groupId>
+			<artifactId>icu4j</artifactId>
 			<version>74.2</version> <!-- latest stable version -->
 		</dependency>
 
@@ -161,7 +168,9 @@
 							<artifactId>lombok</artifactId>
 						</path>
 					</annotationProcessorPaths>
-				</configuration>
+                    <source>22</source>
+                    <target>22</target>
+                </configuration>
 			</plugin>
 
 			<!-- Spring Boot Maven Plugin -->

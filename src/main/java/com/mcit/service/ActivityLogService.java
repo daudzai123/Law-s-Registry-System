@@ -17,55 +17,77 @@ import java.util.stream.Collectors;
 
 @Service
 public class ActivityLogService {
+
     @Autowired
     private ActivityLogRepository activityLogRepository;
+
     @Autowired
     private CurrentUserInfoService currentUserInfoService;
 
-    public void logActivity(String entityName, Long recordId, String action) {
-        String currentUser = currentUserInfoService.getCurrentUserUsername();
+    /**
+     * Logs an activity.
+     * If username is null, the currently authenticated user is used.
+     */
+    public void logActivity(
+            String entityName,
+            Long recordId,
+            String action,
+            String content,
+            String username
+    ) {
+        String finalUsername =
+                (username != null && !username.isBlank())
+                        ? username
+                        : currentUserInfoService.getCurrentUserUsername();
 
         ActivityLog activityLog = new ActivityLog();
         activityLog.setTimestamp(LocalDateTime.now());
         activityLog.setAction(action);
         activityLog.setEntityName(entityName);
         activityLog.setRecordId(recordId);
-        activityLog.setUserName(currentUser);
-
-        activityLogRepository.save(activityLog);
-    }
-
-    public void logsActivity(String entityName, Long recordId, String action, String content) {
-        String currentUser = currentUserInfoService.getCurrentUserUsername();
-
-        ActivityLog activityLog = new ActivityLog();
-        activityLog.setTimestamp(LocalDateTime.now());
-        activityLog.setAction(action);
-        activityLog.setEntityName(entityName);
-        activityLog.setRecordId(recordId);
-        activityLog.setUserName(currentUser);
+        activityLog.setUserName(finalUsername);
         activityLog.setContent(content);
 
         activityLogRepository.save(activityLog);
     }
 
-    public Page<ActivityLog> getLogActivitiesFiltered(String entityName, String action, String userName, String searchItem, Pageable pageable) {
-        Page<ActivityLog> activityLogs = activityLogRepository.filterActivityLogs(entityName, action, userName, searchItem, pageable);
-        return new PageImpl<>(activityLogs.getContent(), pageable, activityLogs.getTotalElements());
+    public Page<ActivityLog> getLogActivitiesFiltered(
+            String entityName,
+            String action,
+            String userName,
+            String searchItem,
+            Pageable pageable
+    ) {
+        Page<ActivityLog> activityLogs =
+                activityLogRepository.filterActivityLogs(
+                        entityName, action, userName, searchItem, pageable);
+
+        return new PageImpl<>(
+                activityLogs.getContent(),
+                pageable,
+                activityLogs.getTotalElements()
+        );
     }
 
-    public Page<ActivityLogResponseDTO> findByCriteria(ActivityLogCriteria criteria, Pageable pageable) {
-        Specification<ActivityLog> spec = activityLogRepository.buildSpecification(criteria);
-        Page<ActivityLog> all = activityLogRepository.findAll(spec, pageable);
+    public Page<ActivityLogResponseDTO> findByCriteria(
+            ActivityLogCriteria criteria,
+            Pageable pageable
+    ) {
+        Specification<ActivityLog> spec =
+                activityLogRepository.buildSpecification(criteria);
 
-        List<ActivityLogResponseDTO> dtoList = all.getContent().stream()
+        Page<ActivityLog> all =
+                activityLogRepository.findAll(spec, pageable);
+
+        List<ActivityLogResponseDTO> dtoList = all.getContent()
+                .stream()
                 .map(this::mapEntityToDTO)
                 .collect(Collectors.toList());
 
         return new PageImpl<>(dtoList, pageable, all.getTotalElements());
     }
 
-    private ActivityLogResponseDTO mapEntityToDTO(ActivityLog activityLog){
+    private ActivityLogResponseDTO mapEntityToDTO(ActivityLog activityLog) {
         ActivityLogResponseDTO dto = new ActivityLogResponseDTO();
         dto.setId(activityLog.getId());
         dto.setEntityName(activityLog.getEntityName());

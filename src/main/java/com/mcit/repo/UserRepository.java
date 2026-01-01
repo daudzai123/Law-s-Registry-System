@@ -1,25 +1,23 @@
 package com.mcit.repo;
 
 
-import com.mcit.entity.MyUser;
-import com.mcit.enums.Role;
+import com.mcit.entity.User;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
-public interface MyUserRepository extends JpaRepository<MyUser, Long> {
+public interface UserRepository extends JpaRepository<User, Long> {
 
     // Find user by email
-    Optional<MyUser> findByEmail(String email);
+    Optional<User> findByEmail(String email);
 
-    Optional<MyUser> findByUsername(String username);
+    Optional<User> findByUsername(String username);
 
-    Page<MyUser> findByUsernameContainingIgnoreCase(String username, Pageable pageable);
+    Page<User> findByUsernameContainingIgnoreCase(String username, Pageable pageable);
 
-    Optional<MyUser> findById(Long id);
+    Optional<User> findById(Long id);
 
     boolean existsByUsername(String username);
 

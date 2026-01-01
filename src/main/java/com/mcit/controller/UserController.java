@@ -1,16 +1,18 @@
 package com.mcit.controller;
 
 import com.mcit.dto.*;
-import com.mcit.entity.MyUser;
+import com.mcit.entity.User;
 import com.mcit.enums.Role;
+import com.mcit.exception.ResourceNotFoundException;
 import com.mcit.repo.ForgotPasswordRepository;
-import com.mcit.repo.MyUserRepository;
+import com.mcit.repo.UserRepository;
+import com.mcit.service.ActivityLogService;
+import com.mcit.service.FileStorageService;
 import com.mcit.service.ForgotPasswordService;
 import com.mcit.service.MyUserDetailService;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.util.ReflectionUtils;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -24,63 +26,73 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/users")
 public class UserController {
 
-    private final MyUserRepository myUserRepository;
+    private final UserRepository userRepository;
     private final MyUserDetailService myUserDetailService;
     private final ForgotPasswordService forgotPasswordService;
+    private final FileStorageService fileStorageService;
+    private final ActivityLogService activityLogService;
 
-    public UserController(MyUserRepository myUserRepository, MyUserDetailService myUserDetailService, ForgotPasswordRepository forgotPasswordRepository, ForgotPasswordService forgotPasswordService) {
-        this.myUserRepository = myUserRepository;
+    public UserController(UserRepository userRepository, MyUserDetailService myUserDetailService, ForgotPasswordRepository forgotPasswordRepository, ForgotPasswordService forgotPasswordService, FileStorageService fileStorageService, ActivityLogService activityLogService) {
+        this.userRepository = userRepository;
         this.myUserDetailService = myUserDetailService;
         this.forgotPasswordService = forgotPasswordService;
+        this.fileStorageService = fileStorageService;
+        this.activityLogService = activityLogService;
     }
 
-    //partial update
     @PatchMapping("/{id}")
-    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody Map<String, Object> updates) {
-        Optional<MyUser> existingUserOpt = myUserRepository.findById(id);
-
-        if (existingUserOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "User not found", "message", "No user found with id: " + id));
-        }
-
-        MyUser user = existingUserOpt.get();
+    public ResponseEntity<?> updateUser(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> updates,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with id: " + id));
 
         updates.forEach((field, value) -> {
-            Field userField = org.springframework.util.ReflectionUtils.findField(MyUser.class, field);
+            Field userField = org.springframework.util.ReflectionUtils.findField(User.class, field);
             if (userField != null) {
                 userField.setAccessible(true);
 
-                // Prevent updating ID and password directly
                 if (field.equalsIgnoreCase("id")) {
                     throw new IllegalArgumentException("Updating ID is not allowed");
-                } else if (field.equalsIgnoreCase("password")) {
-                    throw new IllegalArgumentException("Use the change password endpoint to update the password");
+                }
+                if (field.equalsIgnoreCase("password")) {
+                    throw new IllegalArgumentException("Use change password endpoint");
                 }
 
-                // Convert username and email to lowercase before saving
                 if (field.equalsIgnoreCase("username") || field.equalsIgnoreCase("email")) {
                     value = value.toString().toLowerCase();
                 }
 
-                // Convert role and literacyLevel to their respective enums
                 if (field.equalsIgnoreCase("role") && value instanceof String) {
-                    value = Role.valueOf(((String) value).toUpperCase()); // Convert string to enum
+                    value = Role.valueOf(value.toString().toUpperCase());
                 }
+
                 ReflectionUtils.setField(userField, user, value);
             }
         });
 
-        // Save the updated user
-        myUserRepository.save(user);
+        User updatedUser = userRepository.save(user);
 
-        return ResponseEntity.ok(user);
+        // ✅ ACTIVITY LOG
+        activityLogService.logActivity(
+                "User",
+                updatedUser.getId(),
+                "UPDATE",
+                "User updated: " + updatedUser.getUsername(),
+                userDetails.getUsername()
+        );
+
+        return ResponseEntity.ok(updatedUser);
     }
+
 
     //get specific user
     @GetMapping("/{id}")
-    public Optional<MyUser> getUserById(@PathVariable Long id) {
-        return myUserRepository.findById(id);
+    public Optional<User> getUserById(@PathVariable Long id) {
+        return userRepository.findById(id);
     }
 
     // Pagination and Search endpoints
@@ -90,7 +102,7 @@ public class UserController {
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "id,asc") String[] sort
     ) {
-        Page<MyUser> result = myUserDetailService.getUsersPaginated(page, size, sort);
+        Page<User> result = myUserDetailService.getUsersPaginated(page, size, sort);
 
         List<UserResponseDTO> users = result.getContent()
                 .stream()
@@ -110,22 +122,25 @@ public class UserController {
         );
     }
 
-    private UserResponseDTO mapToUserDTO(MyUser user) {
-        UserResponseDTO dto = new UserResponseDTO();
-        dto.setId(user.getId());
-        dto.setFirstname(user.getFirstname());
-        dto.setLastname(user.getLastname());
-        dto.setEmail(user.getEmail());
-        dto.setUsername(user.getUsername());
-        dto.setRole(user.getRole().name());
-        dto.setActive(user.getIsActive());
-        dto.setPosition(user.getPosition());
-        return dto;
+    private UserResponseDTO mapToUserDTO(User user) {
+        return new UserResponseDTO(
+                user.getId(),
+                user.getFirstname() + " " + user.getLastname(), // ✅ fullName
+                user.getFathername(),
+                user.getNid(),
+                user.getPhone(),
+                user.getEmail(),
+                user.getUsername(),
+                user.getPosition(),
+                user.getRole().name(),     // ✅ enum → String
+                user.getIsActive(),
+                user.getProfileImage(),
+                user.getCreateDate()
+        );
     }
 
-
     @GetMapping("/sorted")
-    public Page<MyUser> getUsersSorted(
+    public Page<User> getUsersSorted(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
             @RequestParam(defaultValue = "id") String sortBy) {
@@ -133,12 +148,12 @@ public class UserController {
     }
 
     @GetMapping("/search")
-    public List<MyUser> searchUsers(@RequestParam String username) {
+    public List<User> searchUsers(@RequestParam String username) {
         return Collections.singletonList(myUserDetailService.findByUsername(username));
     }
 
     @GetMapping("/search-paginated")
-    public Page<MyUser> searchUsersPaginated(
+    public Page<User> searchUsersPaginated(
             @RequestParam String username,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "5") int size,
@@ -147,17 +162,32 @@ public class UserController {
     }
 
 
-    // Delete user by id
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        if (!myUserRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        myUserRepository.deleteById(id);
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with id: " + id));
 
-        return ResponseEntity
-                .noContent()
-                .build();
+        if (user.getProfileImage() != null && !user.getProfileImage().isBlank()) {
+            String fileName = user.getProfileImage().replace("profileImages/", "");
+            fileStorageService.deleteProfileImage(fileName);
+        }
+
+        userRepository.delete(user);
+
+        // ✅ ACTIVITY LOG
+        activityLogService.logActivity(
+                "User",
+                user.getId(),
+                "DELETE",
+                "User deleted: " + user.getUsername(),
+                userDetails.getUsername()
+        );
+
+        return ResponseEntity.noContent().build();
     }
 
     // endpoint for getting roles enum
@@ -195,26 +225,29 @@ public class UserController {
         return result;
     }
 
-    // change password endpoint
     @PutMapping("/change-password")
     public ResponseEntity<String> changePassword(
             @RequestBody ChangePasswordRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        // Perform password change logic
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
         myUserDetailService.changePassword(userDetails.getUsername(), request);
 
-        // Return a success response
+        activityLogService.logActivity(
+                "User",
+                null,
+                "CHANGE_PASSWORD",
+                "Password changed",
+                userDetails.getUsername()
+        );
+
         return ResponseEntity.ok("Password changed successfully.");
     }
 
-
-
     @GetMapping("/count-user-status")
     public ResponseEntity<Map<String, Long>> getUserStats() {
-        long activeCount = myUserRepository.countByIsActiveTrue();
-        long inactiveCount = myUserRepository.countByIsActiveFalse();
-        long totalCount = myUserRepository.count(); // built-in method
+        long activeCount = userRepository.countByIsActiveTrue();
+        long inactiveCount = userRepository.countByIsActiveFalse();
+        long totalCount = userRepository.count(); // built-in method
 
         Map<String, Long> stats = Map.of(
                 "activeUsers", activeCount,

@@ -3,10 +3,10 @@ package com.mcit.service;
 import com.mcit.dto.ResetPasswordOTPRequest;
 import com.mcit.dto.ResetPasswordRequest;
 import com.mcit.entity.ForgotPassword;
-import com.mcit.entity.MyUser;
+import com.mcit.entity.User;
 import com.mcit.jwt.JwtUtilityClass;
 import com.mcit.repo.ForgotPasswordRepository;
-import com.mcit.repo.MyUserRepository;
+import com.mcit.repo.UserRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,11 +25,10 @@ import java.util.UUID;
 public class ForgotPasswordService {
 
     @Autowired
-    private MyUserRepository myUserRepository;
+    private UserRepository userRepository;
 
     @Autowired
     private ForgotPasswordRepository forgotPasswordRepository;
-
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -43,8 +42,7 @@ public class ForgotPasswordService {
     // Generate and send OTP
     public ResponseEntity<String> createOtpCode(ResetPasswordOTPRequest request) {
         String email = request.email();
-        MyUser user = myUserRepository.findByEmail(email).orElse(null);
-
+        User user = userRepository.findByEmail(email).orElse(null);
 
         if (user == null) {
             return new ResponseEntity<>("User not found with email: " + email, HttpStatus.NOT_FOUND);
@@ -77,13 +75,13 @@ public class ForgotPasswordService {
             return ResponseEntity.badRequest().body("The New Password and Confirm New Password don't match");
         }
 
-        MyUser user = myUserRepository.findByEmail(username).orElse(null);
+        User user = userRepository.findByEmail(username).orElse(null);
         if (user == null) {
             return ResponseEntity.badRequest().body("User not found");
         }
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
-        myUserRepository.save(user);
+        userRepository.save(user);
 
         return new ResponseEntity<>("Password has been reset successfully.", HttpStatus.OK);
     }

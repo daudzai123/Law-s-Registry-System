@@ -3,27 +3,22 @@ package com.mcit.service;
 import com.mcit.dto.LawDTO;
 import com.mcit.dto.LawResponseDTO;
 import com.mcit.dto.LawSearchCriteriaDTO;
+import com.mcit.dto.LawSummaryReportDTO;
 import com.mcit.entity.Law;
-import com.mcit.entity.MyUser;
+import com.mcit.entity.User;
 import com.mcit.enums.LawType;
 import com.mcit.enums.Status;
-import com.mcit.exception.DuplicateLawException;
 import com.mcit.exception.ResourceNotFoundException;
 import com.mcit.repo.LawRepository;
-import com.mcit.repo.MyUserRepository;
+import com.mcit.repo.UserRepository;
 import com.mcit.specification.LawSpecification;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,202 +27,153 @@ import java.util.stream.Collectors;
 public class LawService {
 
     private final LawRepository lawRepository;
-    private final MyUserRepository userRepository;
+    private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
-
-    /* =========================================================
-       1️⃣ CREATE
-       ========================================================= */
+    private final DateConversionService dateConversionService;
 
     public LawDTO addLawFromDTO(LawDTO dto) {
 
-        // Duplicate checks
-        if (dto.getSequenceNumber() != null &&
-                lawRepository.existsBySequenceNumber(dto.getSequenceNumber())) {
-            throw new DuplicateLawException(
-                    "Sequence number '" + dto.getSequenceNumber() + "' already exists."
-            );
-        }
+        Law law = new Law();
 
-        Law law = dtoToEntity(dto);
+        law.setType(dto.getType());
+        law.setSequenceNumber(dto.getSequenceNumber());
+        law.setTitleEng(dto.getTitleEng());
+        law.setTitlePs(dto.getTitlePs());
+        law.setTitleDr(dto.getTitleDr());
+        law.setStatus(dto.getStatus());
+        law.setDescription(dto.getDescription());
+        law.setAttachment(dto.getAttachment());
 
-        // Validate user
-        if (dto.getUserId() == null) {
-            throw new IllegalArgumentException("User id is required.");
-        }
+        // 🔹 Auto-detect calendar & convert to Hijri-Qamari
+        String hijriQamariDate =
+                dateConversionService.toHijriQamariAuto(dto.getPublishDate());
 
-        MyUser user = userRepository.findById(dto.getUserId())
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "User not found with id: " + dto.getUserId()
-                        )
-                );
+        law.setPublishDate(hijriQamariDate);
 
-        law.setUser(user);
+        law.setUser(
+                userRepository.findById(dto.getUserId())
+                        .orElseThrow(() -> new IllegalArgumentException("User not found"))
+        );
 
         Law saved = lawRepository.save(law);
         return toDTO(saved);
     }
 
-    /* =========================================================
-       2️⃣ READ
-       ========================================================= */
-
+    // Read
     public LawDTO findByIdAsDTO(Long id) {
         return lawRepository.findById(id)
                 .map(this::toDTO)
-                .orElse(null);
+                .orElseThrow(() -> new ResourceNotFoundException("Law not found with id: " + id));
     }
 
-    public List<LawDTO> findAllAsDTO() {
-        return lawRepository.findAll()
-                .stream()
-                .map(this::toDTO)
-                .collect(Collectors.toList());
-    }
-
-    /* =========================================================
-       3️⃣ SEARCH & FILTER
-       ========================================================= */
-
-    public Page<Law> searchLaws(
-            LawSearchCriteriaDTO criteria,
-            int page,
-            int size,
-            String[] sort
-    ) {
-
-        Specification<Law> spec =
-                LawSpecification.filterByCriteria(criteria);
-
-        Sort sortOrder = Sort.by(
-                Sort.Direction.fromString(sort[1]),
-                sort[0]
-        );
-
-        Pageable pageable =
-                PageRequest.of(page, size, sortOrder);
-
+   // Search and Filter
+    public Page<Law> searchLaws(LawSearchCriteriaDTO criteria, int page, int size, String[] sort) {
+        Specification<Law> spec = LawSpecification.filterByCriteria(criteria);
+        Sort sortOrder = Sort.by(Sort.Direction.fromString(sort[1]), sort[0]);
+        Pageable pageable = PageRequest.of(page, size, sortOrder);
         return lawRepository.findAll(spec, pageable);
     }
 
+    // Search By Title
     public List<LawResponseDTO> searchByTitle(String title) {
-
         List<LawResponseDTO> results = lawRepository.searchByTitle(title)
                 .stream()
                 .map(this::mapToResponseDTOWithSize)
                 .toList();
 
         if (results.isEmpty()) {
-            throw new ResourceNotFoundException(
-                    "No law found with title containing: " + title
-            );
+            throw new ResourceNotFoundException("No law found with title containing: " + title);
         }
 
         return results;
     }
 
+    // Find By Exact Title
+    public List<LawResponseDTO> findByExactTitle(String title) {
+        List<Law> laws = lawRepository.findByExactTitle(title);
 
-    public LawResponseDTO findByExactTitle(String title) {
-        Law law = lawRepository.findByExactTitle(title)
-                .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "No law found with the exact given title."
-                        )
-                );
+        if (laws.isEmpty()) {
+            throw new ResourceNotFoundException("No law found with the exact given title.");
+        }
 
-        return mapToResponseDTO(law);
+        return laws.stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
     }
 
-    /* =========================================================
-       4️⃣ UPDATE
-       ========================================================= */
 
-    public LawDTO partialUpdateLaw(Long id, LawDTO updates) {
+    public LawDTO updateLawFromDTO(Long id, LawDTO updates) {
 
-        Law existing = lawRepository.findById(id).orElse(null);
-        if (existing == null) return null;
+        // 1️⃣ Find existing law
+        Law existing = lawRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Law not found with id: " + id));
 
-        // Duplicate checks
-        if (updates.getSequenceNumber() != null &&
-                !updates.getSequenceNumber().equals(existing.getSequenceNumber())) {
-
-            if (lawRepository.existsBySequenceNumber(updates.getSequenceNumber())) {
-                throw new DuplicateLawException(
-                        "Sequence number '" + updates.getSequenceNumber() + "' already exists."
-                );
-            }
+        // 2️⃣ Update simple mutable fields only
+        if (updates.getSequenceNumber() != null)
             existing.setSequenceNumber(updates.getSequenceNumber());
-        }
 
-        if (updates.getTitleEng() != null &&
-                !updates.getTitleEng().equalsIgnoreCase(existing.getTitleEng())) {
-
-            if (lawRepository.existsByTitleEngIgnoreCase(updates.getTitleEng())) {
-                throw new DuplicateLawException(
-                        "English title '" + updates.getTitleEng() + "' already exists."
-                );
-            }
+        if (updates.getTitleEng() != null)
             existing.setTitleEng(updates.getTitleEng());
-        }
 
-        if (updates.getTitlePs() != null &&
-                !updates.getTitlePs().equalsIgnoreCase(existing.getTitlePs())) {
-
-            if (lawRepository.existsByTitlePsIgnoreCase(updates.getTitlePs())) {
-                throw new DuplicateLawException(
-                        "Pashto title '" + updates.getTitlePs() + "' already exists."
-                );
-            }
+        if (updates.getTitlePs() != null)
             existing.setTitlePs(updates.getTitlePs());
-        }
 
-        if (updates.getTitleDr() != null &&
-                !updates.getTitleDr().equalsIgnoreCase(existing.getTitleDr())) {
-
-            if (lawRepository.existsByTitleDrIgnoreCase(updates.getTitleDr())) {
-                throw new DuplicateLawException(
-                        "Dari title '" + updates.getTitleDr() + "' already exists."
-                );
-            }
+        if (updates.getTitleDr() != null)
             existing.setTitleDr(updates.getTitleDr());
+
+        if (updates.getType() != null)
+            existing.setType(updates.getType());
+
+        if (updates.getStatus() != null)
+            existing.setStatus(updates.getStatus());
+
+        if (updates.getDescription() != null)
+            existing.setDescription(updates.getDescription());
+
+        if (updates.getAttachment() != null) {
+            // Just update the path in DB
+            existing.setAttachment(updates.getAttachment());
         }
 
-        // Update simple fields
-        if (updates.getType() != null) existing.setType(updates.getType());
-        if (updates.getStatus() != null) existing.setStatus(updates.getStatus());
-        if (updates.getDescription() != null) existing.setDescription(updates.getDescription());
-        if (updates.getAttachment() != null) existing.setAttachment(updates.getAttachment());
+        // 🔹 Convert publishDate to Hijri-Qamari if provided
+        if (updates.getPublishDate() != null && !updates.getPublishDate().isBlank()) {
+            String hijriQamariDate =
+                    dateConversionService.toHijriQamariAuto(updates.getPublishDate());
+            existing.setPublishDate(hijriQamariDate);
+        }
 
-        // Update user
-        if (updates.getUserId() != null &&
-                (existing.getUser() == null ||
-                        !updates.getUserId().equals(existing.getUser().getId()))) {
-
-            MyUser user = userRepository.findById(updates.getUserId())
+        if (updates.getUserId() != null) {
+            User user = userRepository.findById(updates.getUserId())
                     .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "User not found with id: " + updates.getUserId()
-                            )
-                    );
+                            new RuntimeException("User not found with id: " + updates.getUserId()));
             existing.setUser(user);
         }
 
+        // 3️⃣ Save & return updated DTO
         return toDTO(lawRepository.save(existing));
     }
 
-    /* =========================================================
-       5️⃣ DELETE
-       ========================================================= */
+    // find by sequence number
+    public List<Law> findBySequenceNumber(Long sequenceNumber) {
+        return lawRepository.findBySequenceNumber(sequenceNumber);
+    }
 
+    // Delete
     public void deleteById(Long id) {
+        // 1️⃣ Find the law first
+        Law law = lawRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Law not found with id: " + id));
+
+        // 2️⃣ Delete the attachment if exists
+        if (law.getAttachment() != null && !law.getAttachment().isBlank()) {
+            fileStorageService.deleteLawAttachment(law.getAttachment().replace("laws/", ""));
+        }
+
+        // 3️⃣ Delete the law record
         lawRepository.deleteById(id);
     }
 
-    /* =========================================================
-       6️⃣ REPORTS & STATISTICS
-       ========================================================= */
-
+    // Report and Statistic
     public Map<Status, Long> getLawCountsByStatus() {
         return lawRepository.countLawsByStatus()
                 .stream()
@@ -237,56 +183,101 @@ public class LawService {
                 ));
     }
 
+    // summary report for year and month
+    public Map<LawType, Map<Status, Long>> getTypeStatusReport() {
+        Map<LawType, Map<Status, Long>> result = new EnumMap<>(LawType.class);
+
+        for (LawType type : LawType.values()) {
+            Map<Status, Long> statusMap = new EnumMap<>(Status.class);
+            for (Status status : Status.values()) {
+                statusMap.put(status, 0L);
+            }
+            result.put(type, statusMap);
+        }
+
+        lawRepository.countByTypeAndStatus()
+                .forEach(row -> result.get((LawType) row[0]).put((Status) row[1], (Long) row[2]));
+
+        return result;
+    }
+
+    public LawSummaryReportDTO getLawSummaryByYearAndMonth(int year, Integer month) {
+        String yearStr = String.valueOf(year);
+        String yearMonth = month != null ? String.format("%s-%02d", yearStr, month) : null;
+
+        LawSummaryReportDTO dto = new LawSummaryReportDTO();
+        dto.setYear(year);
+        dto.setMonth(month);
+
+        // ---------- By Type ----------
+        Map<LawType, Long> byType = Arrays.stream(LawType.values())
+                .collect(Collectors.toMap(t -> t, t -> 0L));
+
+        List<Object[]> typeResults = (month != null) ?
+                lawRepository.countLawsByTypeForYearAndMonth(yearMonth) :
+                lawRepository.countLawsByTypeForYear(yearStr);
+
+        typeResults.forEach(r -> {
+            LawType type = (LawType) r[0];   // cast directly to LawType
+            Long count = ((Number) r[1]).longValue();
+            byType.put(type, count);
+        });
+
+        dto.setByType(byType);
+
+
+        // ---------- By Status ----------
+        Map<Status, Long> byStatus = Arrays.stream(Status.values())
+                .collect(Collectors.toMap(s -> s, s -> 0L));
+
+        // Fetch all laws for the period and count status in Java
+        List<Law> laws = (month != null) ?
+                lawRepository.findAllByPublishDateStartingWith(yearMonth) :
+                lawRepository.findAllByPublishDateStartingWith(yearStr);
+
+        laws.forEach(law -> {
+            Status s = law.getStatus();
+            byStatus.put(s, byStatus.getOrDefault(s, 0L) + 1);
+        });
+
+        dto.setByStatus(byStatus);
+
+        // ---------- By Type + Status ----------
+        Map<LawType, Map<Status, Long>> byTypeStatus = new EnumMap<>(LawType.class);
+        for (LawType type : LawType.values()) {
+            Map<Status, Long> statusMap = new EnumMap<>(Status.class);
+            for (Status status : Status.values()) {
+                statusMap.put(status, 0L);
+            }
+            byTypeStatus.put(type, statusMap);
+        }
+
+        laws.forEach(law -> {
+            byTypeStatus.get(law.getType()).put(
+                    law.getStatus(),
+                    byTypeStatus.get(law.getType()).get(law.getStatus()) + 1
+            );
+        });
+
+        dto.setByTypeAndStatus(byTypeStatus);
+
+        return dto;
+    }
+
     public Map<LawType, Long> getLawCountsByType() {
-        return lawRepository.countLawsByType()
-                .stream()
-                .collect(Collectors.toMap(
-                        row -> (LawType) row[0],
-                        row -> (Long) row[1]
-                ));
+        return convertToMap(lawRepository.countLawsByType());
     }
-
-    public Map<LawType, Long> getReportByYear(int year) {
-        return convertToMap(
-                lawRepository.countLawsByTypeForYear(year)
-        );
-    }
-
-    public Map<LawType, Long> getReportByMonthAndYear(int year, int month) {
-        return convertToMap(
-                lawRepository.countLawsByTypeForYearAndMonth(year, month)
-        );
-    }
-
-    /* =========================================================
-       7️⃣ FILE HELPERS
-       ========================================================= */
-
-    public String getAttachmentFilename(Long id) {
-        return lawRepository.findById(id)
-                .map(Law::getAttachment)
-                .orElse(null);
-    }
-
-    /* =========================================================
-       8️⃣ MAPPERS & PRIVATE HELPERS
-       ========================================================= */
 
     private Map<LawType, Long> convertToMap(List<Object[]> results) {
-        Map<LawType, Long> counts =
-                Arrays.stream(LawType.values())
-                        .collect(Collectors.toMap(t -> t, t -> 0L));
+        Map<LawType, Long> counts = Arrays.stream(LawType.values())
+                .collect(Collectors.toMap(t -> t, t -> 0L));
 
-        results.forEach(row ->
-                counts.put((LawType) row[0], (Long) row[1])
-        );
-
+        results.forEach(row -> counts.put((LawType) row[0], (Long) row[1]));
         return counts;
     }
 
+    // Mappers
     private LawDTO toDTO(Law law) {
-        if (law == null) return null;
-
         LawDTO dto = new LawDTO();
         dto.setId(law.getId());
         dto.setSequenceNumber(law.getSequenceNumber());
@@ -297,26 +288,9 @@ public class LawService {
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
+        dto.setUserId(law.getUser().getId());
         dto.setPublishDate(law.getPublishDate());
-        dto.setUserId(
-                law.getUser() != null ? law.getUser().getId() : null
-        );
         return dto;
-    }
-
-    private Law dtoToEntity(LawDTO dto) {
-        Law law = new Law();
-        law.setId(dto.getId());
-        law.setPublishDate(dto.getPublishDate());
-        law.setSequenceNumber(dto.getSequenceNumber());
-        law.setTitleEng(dto.getTitleEng());
-        law.setTitlePs(dto.getTitlePs());
-        law.setTitleDr(dto.getTitleDr());
-        law.setType(dto.getType());
-        law.setStatus(dto.getStatus());
-        law.setDescription(dto.getDescription());
-        law.setAttachment(dto.getAttachment());
-        return law;
     }
 
     private LawResponseDTO mapToResponseDTO(Law law) {
@@ -331,18 +305,27 @@ public class LawService {
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
+        if (law.getUser() != null) dto.setUserId(law.getUser().getId());
+        return dto;
+    }
 
-        if (law.getUser() != null) {
-            dto.setUserId(law.getUser().getId());
+    public LawResponseDTO mapToResponseDTOWithSize(Law law) {
+        LawResponseDTO dto = mapToResponseDTO(law);
+        if (law.getAttachment() != null && !law.getAttachment().isBlank()) {
+            dto.setAttachmentSize(
+                    fileStorageService.getFormattedFileSize(law.getAttachment().replace("laws/", ""), false)
+            );
+        } else {
+            dto.setAttachmentSize(null);
         }
         return dto;
     }
 
-    private LawResponseDTO mapToResponseDTOWithSize(Law law) {
-        LawResponseDTO dto = mapToResponseDTO(law);
-        dto.setAttachmentSize(
-                fileStorageService.getFormattedFileSize(law.getAttachment())
-        );
-        return dto;
+    // In LawService
+    public Law findByIdEntity(Long id) {
+        return lawRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Law not found with id: " + id));
     }
+
 }
+

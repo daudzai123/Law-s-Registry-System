@@ -1,9 +1,8 @@
 package com.mcit.service;
 
 import com.mcit.dto.ChangePasswordRequest;
-import com.mcit.dto.UserResponseDTO;
-import com.mcit.entity.MyUser;
-import com.mcit.repo.MyUserRepository;
+import com.mcit.entity.User;
+import com.mcit.repo.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -11,27 +10,24 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import javax.swing.*;
 import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
 @Service
 public class MyUserDetailService implements UserDetailsService {
 
-    private final MyUserRepository repository;
+    private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
 
     @Autowired
-    public MyUserDetailService(MyUserRepository repository, PasswordEncoder passwordEncoder) {
+    public MyUserDetailService(UserRepository repository, PasswordEncoder passwordEncoder) {
         this.repository = repository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -40,19 +36,19 @@ public class MyUserDetailService implements UserDetailsService {
     public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
         log.info("[AUTH] Trying login with username/email: {}", identifier);
 
-        Optional<MyUser> optionalUser = repository.findByUsername(identifier);
+        Optional<User> optionalUser = repository.findByUsername(identifier);
         if (optionalUser.isEmpty()) {
             log.info("[AUTH] Not found by username. Trying email: {}", identifier);
             optionalUser = repository.findByEmail(identifier);
         }
 
-        MyUser user = optionalUser.orElseThrow(() ->
+        User user = optionalUser.orElseThrow(() ->
                 new UsernameNotFoundException("User not found with username or email: " + identifier));
 
         log.info("[AUTH] Found user: username='{}', email='{}', role='{}'",
                 user.getUsername(), user.getEmail(), user.getRole());
 
-        return new User(
+        return new org.springframework.security.core.userdetails.User(
                 identifier,  // return the identifier used for login to keep consistent principal
                 user.getPassword(),
                 Collections.singleton(new SimpleGrantedAuthority(user.getRole().name()))
@@ -60,11 +56,11 @@ public class MyUserDetailService implements UserDetailsService {
     }
 
     public void changePassword(String identifier, ChangePasswordRequest request) {
-        Optional<MyUser> userOpt = repository.findByUsername(identifier);
+        Optional<User> userOpt = repository.findByUsername(identifier);
         if (userOpt.isEmpty()) {
             userOpt = repository.findByEmail(identifier);
         }
-        MyUser user = userOpt.orElseThrow(() -> new UsernameNotFoundException("User not found with identifier: " + identifier));
+        User user = userOpt.orElseThrow(() -> new UsernameNotFoundException("User not found with identifier: " + identifier));
 
         if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Current password is incorrect");
@@ -80,7 +76,7 @@ public class MyUserDetailService implements UserDetailsService {
 
     // ========== PAGINATION & SEARCH METHODS ==========
 
-    public Page<MyUser> getUsersPaginated(int page, int size, String[] sort) {
+    public Page<User> getUsersPaginated(int page, int size, String[] sort) {
 
         Sort sortOrder = Sort.by(
                 Sort.Direction.fromString(sort[1]),
@@ -91,17 +87,17 @@ public class MyUserDetailService implements UserDetailsService {
         return repository.findAll(pageable);
     }
 
-    public Page<MyUser> getUsersSorted(int page, int size, String sortBy) {
+    public Page<User> getUsersSorted(int page, int size, String sortBy) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         return repository.findAll(pageable);
     }
 
-    public Page<MyUser> searchUsersPaginated(String username, int page, int size, String sortBy) {
+    public Page<User> searchUsersPaginated(String username, int page, int size, String sortBy) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy));
         return repository.findByUsernameContainingIgnoreCase(username, pageable);
     }
 
-    public MyUser findByUsername(String username) {
+    public User findByUsername(String username) {
         return repository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }

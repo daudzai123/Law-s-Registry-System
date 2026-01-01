@@ -12,6 +12,7 @@ import java.time.LocalDate;
 public class ActivityLogCriteria {
     private String entityName;
     private String action;
+    private String userName;
     private LocalDate logsStartDate;
     private LocalDate logsEndDate;
     private String searchTerm;

@@ -13,7 +13,6 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -65,13 +64,16 @@ public class DbBackupService {
                 .orElseThrow(() -> new ResourceNotFoundException("Backup not found!"));
         Path path = Paths.get(backupPath, db.getBackupPath());
         try {
-            Files.delete(path);
+            Files.deleteIfExists(path); // avoids exception if file doesn't exist
             backupRepository.delete(db);
             return "Backup deleted successfully.";
         } catch (IOException e) {
             System.err.println("Error deleting file: " + e.getMessage());
-            return "Backup file could not be deleted.";
+            // Still delete DB record to avoid orphan
+            backupRepository.delete(db);
+            return "Backup file could not be deleted, but DB record removed.";
         }
+
     }
 
     public void downloadSql(HttpServletResponse response, String fileName) throws IOException {
@@ -93,7 +95,7 @@ public class DbBackupService {
         }
     }
 
-    public void generateBackup(HttpServletResponse response) throws IOException, InterruptedException {
+    public BackupDB generateBackup(HttpServletResponse response) throws IOException, InterruptedException {
         String backupFileName = "backup-" + System.currentTimeMillis() + ".sql";
         String backupFilePath = Paths.get(backupPath, backupFileName).toString();
 
@@ -125,6 +127,7 @@ public class DbBackupService {
             response.getWriter().write("Backup process failed!");
             System.err.println("Backup failed!");
         }
+        return null;
     }
 
     public String restoreDB(String fileName) throws IOException, InterruptedException {

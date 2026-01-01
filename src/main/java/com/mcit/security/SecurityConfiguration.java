@@ -89,11 +89,8 @@ public class SecurityConfiguration {
                     // ✅ public endpoints
                     registry.requestMatchers(
                             "/home",
-                            "/api/register/**",
-                            "/api/authenticate",
-                            "/api/verify-email",
-                            "/api/users/**",
-                            "/api/account/**",
+                            "/api/auth/authenticate",
+                            "/api/auth/verify-email",
                             "/api/laws/download_attachment/**",
                             "/api/laws/view_attachment/**",
                             "/swagger-ui/**",
