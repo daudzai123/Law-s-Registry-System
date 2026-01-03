@@ -150,7 +150,9 @@ public class LawService {
         }
 
         // 3️⃣ Save & return updated DTO
-        return toDTO(lawRepository.save(existing));
+//        return toDTO(lawRepository.save(existing));
+        Law saved = lawRepository.saveAndFlush(existing);
+        return toDTO(saved);
     }
 
     // find by sequence number
@@ -290,6 +292,8 @@ public class LawService {
         dto.setAttachment(law.getAttachment());
         dto.setUserId(law.getUser().getId());
         dto.setPublishDate(law.getPublishDate());
+        dto.setCreateDate(law.getCreateDate());
+        dto.setUpdateDate(law.getUpdateDate());
         return dto;
     }
 
@@ -305,6 +309,8 @@ public class LawService {
         dto.setStatus(law.getStatus());
         dto.setDescription(law.getDescription());
         dto.setAttachment(law.getAttachment());
+        dto.setCreateDate(law.getCreateDate());
+        dto.setUpdateDate(law.getUpdateDate());
         if (law.getUser() != null) dto.setUserId(law.getUser().getId());
         return dto;
     }

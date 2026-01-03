@@ -17,5 +17,7 @@ public class LawDTO {
     private String publishDate;
     private String description;
     private String attachment;
+    private String createDate;
+    private String updateDate;
     private Long userId;
 }

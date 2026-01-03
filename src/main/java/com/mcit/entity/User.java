@@ -8,6 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.chrono.HijrahDate;
 import java.time.temporal.ChronoField;
 
@@ -54,29 +55,34 @@ public class User {
     @Column(name = "create_date", updatable = false, nullable = false)
     private String createDate;
 
-    @Column(name = "updated_date", updatable = false, nullable = false)
+    // ✅ MUST be updatable
+    @Column(name = "updated_date")
     private String updateDate;
 
+    // 🔹 Set create date
     @PrePersist
     public void onCreate() {
-        String hijriNow = currentHijriDate();
-        this.createDate = hijriNow;
-        this.updateDate = hijriNow;
+        this.createDate = currentHijriDateTime();
     }
 
+    // 🔹 Set update date
     @PreUpdate
     public void onUpdate() {
-        this.updateDate = currentHijriDate();
+        this.updateDate = currentHijriDateTime();
     }
 
-    private String currentHijriDate() {
+    private String currentHijriDateTime() {
         HijrahDate hijri = HijrahDate.now();
+        LocalTime time = LocalTime.now();
 
-        int y = hijri.get(ChronoField.YEAR);
-        int m = hijri.get(ChronoField.MONTH_OF_YEAR);
-        int d = hijri.get(ChronoField.DAY_OF_MONTH);
-
-        return String.format("%04d-%02d-%02d", y, m, d);
+        return String.format(
+                "%04d-%02d-%02d %02d:%02d",
+                hijri.get(ChronoField.YEAR),
+                hijri.get(ChronoField.MONTH_OF_YEAR),
+                hijri.get(ChronoField.DAY_OF_MONTH),
+                time.getHour(),
+                time.getMinute()
+        );
     }
 
     @Column(name = "profile_image")

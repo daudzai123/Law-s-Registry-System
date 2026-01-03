@@ -135,7 +135,8 @@ public class UserController {
                 user.getRole().name(),     // ✅ enum → String
                 user.getIsActive(),
                 user.getProfileImage(),
-                user.getCreateDate()
+                user.getCreateDate(),
+                user.getUpdateDate()
         );
     }
 

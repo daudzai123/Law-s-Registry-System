@@ -20,5 +20,6 @@ public class UserResponseDTO {
     private boolean isActive;
     private String profileImage;
     private String createDate;
+    private String updateDate;
 }
 

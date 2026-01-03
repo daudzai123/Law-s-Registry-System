@@ -54,10 +54,6 @@ public class AccountController {
     @Autowired
     private ActivityLogService activityLogService;
 
-    public AccountController(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
-
     private Optional<User> findByUsernameOrEmail(String identifier) {
         Optional<User> userOpt = userRepository.findByUsername(identifier);
         return userOpt.isPresent() ? userOpt : userRepository.findByEmail(identifier);
@@ -96,7 +92,7 @@ public class AccountController {
                         .body(Map.of("error", ex.getMessage()));
             }
         } else {
-            profileImagePath = "profileImages/default.jpg"; // store relative path
+            profileImagePath = "profileImages/default.png"; // store relative path
         }
 
         // Set user fields
@@ -281,7 +277,8 @@ public class AccountController {
                 user.getRole().name(),
                 user.getIsActive(),
                 user.getProfileImage(),
-                user.getCreateDate()
+                user.getCreateDate(),
+                user.getUpdateDate()
         );
     }
 
