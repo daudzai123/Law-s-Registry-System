@@ -6,10 +6,7 @@ import com.mcit.entity.ActivityLog;
 import com.mcit.service.ActivityLogService;
 import com.mcit.specification.ActivityLogCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/activity-log")
@@ -66,20 +64,35 @@ public class ActivityLogController {
             );
         }
 
-        // Otherwise, use basic filter (no date)
+        // Instead of Page<ActivityLog>
         Page<ActivityLog> result = activityLogService.getLogActivitiesFiltered(
                 entityName, action, userName, searchItem, pageable
         );
+
+// Map to DTO
+        List<ActivityLogResponseDTO> dtoList = result.getContent()
+                .stream()
+                .map(activityLogService::mapEntityToDTO) // use your mapper
+                .toList();
+
+// Wrap in a PageImpl
+        Page<ActivityLogResponseDTO> dtoPage = new PageImpl<>(
+                dtoList,
+                pageable,
+                result.getTotalElements()
+        );
+
         return ResponseEntity.ok(
                 new PaginatedResponseDTO<>(
-                        result.getContent(),
-                        result.getNumber(),
-                        result.getSize(),
-                        result.getTotalElements(),
-                        result.getTotalPages(),
-                        result.hasNext(),
-                        result.hasPrevious()
+                        dtoPage.getContent(),
+                        dtoPage.getNumber(),
+                        dtoPage.getSize(),
+                        dtoPage.getTotalElements(),
+                        dtoPage.getTotalPages(),
+                        dtoPage.hasNext(),
+                        dtoPage.hasPrevious()
                 )
         );
+
     }
 }

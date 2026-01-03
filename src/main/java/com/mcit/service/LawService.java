@@ -150,7 +150,6 @@ public class LawService {
         }
 
         // 3️⃣ Save & return updated DTO
-//        return toDTO(lawRepository.save(existing));
         Law saved = lawRepository.saveAndFlush(existing);
         return toDTO(saved);
     }

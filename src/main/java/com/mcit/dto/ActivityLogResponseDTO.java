@@ -1,5 +1,6 @@
 package com.mcit.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,7 +15,7 @@ public class ActivityLogResponseDTO {
     private String entityName;
     private String content;
     private String action;
-    private LocalDateTime timestamp;
+    private String hijriTimestamp;  // keep only Hijri
     private Long recordId;
     private String userName;
 }

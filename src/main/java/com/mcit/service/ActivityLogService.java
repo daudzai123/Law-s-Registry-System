@@ -1,5 +1,6 @@
 package com.mcit.service;
 
+import com.mcit.config.HijriDateUtil;
 import com.mcit.dto.ActivityLogResponseDTO;
 import com.mcit.entity.ActivityLog;
 import com.mcit.repo.ActivityLogRepository;
@@ -87,15 +88,20 @@ public class ActivityLogService {
         return new PageImpl<>(dtoList, pageable, all.getTotalElements());
     }
 
-    private ActivityLogResponseDTO mapEntityToDTO(ActivityLog activityLog) {
+    public ActivityLogResponseDTO mapEntityToDTO(ActivityLog activityLog) {
         ActivityLogResponseDTO dto = new ActivityLogResponseDTO();
         dto.setId(activityLog.getId());
         dto.setEntityName(activityLog.getEntityName());
         dto.setAction(activityLog.getAction());
         dto.setContent(activityLog.getContent());
-        dto.setTimestamp(activityLog.getTimestamp());
+//        dto.setTimestamp(activityLog.getTimestamp());
+        // ✅ Convert Gregorian → Hijri
+        dto.setHijriTimestamp(
+                HijriDateUtil.toHijri(activityLog.getTimestamp())
+        );
         dto.setRecordId(activityLog.getRecordId());
         dto.setUserName(activityLog.getUserName());
+        System.out.println("🔥 DTO MAPPING EXECUTED 🔥");
         return dto;
     }
 }
