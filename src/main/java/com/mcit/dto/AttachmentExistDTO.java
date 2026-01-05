@@ -5,6 +5,6 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class LawAttachmentDTO {
-    private String attachment;
+public class AttachmentExistDTO {
+    private boolean exists;
 }

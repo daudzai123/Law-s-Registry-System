@@ -223,20 +223,27 @@ public class LawController {
         );
     }
 
+    // check law attachment
     @GetMapping("/by-sequence-number/{sequenceNumber}")
-    public ResponseEntity<LawAttachmentDTO> getLawAttachmentBySequenceNumber(@PathVariable Long sequenceNumber) {
+    public ResponseEntity<AttachmentExistDTO> checkLawAttachmentBySequenceNumber(
+            @PathVariable Long sequenceNumber) {
+
         Optional<Law> lawOpt = lawService.findBySequenceNumber(sequenceNumber)
                 .stream()
-                .findFirst(); // return first one if multiple exist
+                .findFirst();
 
         if (lawOpt.isPresent()) {
             Law law = lawOpt.get();
-            LawAttachmentDTO dto = new LawAttachmentDTO(law.getAttachment());
-            return ResponseEntity.ok(dto);
-        } else {
-            return ResponseEntity.notFound().build();
+
+            boolean exists = law.getAttachment() != null
+                    && !law.getAttachment().isBlank();
+
+            return ResponseEntity.ok(new AttachmentExistDTO(exists));
         }
+
+        return ResponseEntity.ok(new AttachmentExistDTO(false));
     }
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> deleteLaw(@PathVariable Long id) {
