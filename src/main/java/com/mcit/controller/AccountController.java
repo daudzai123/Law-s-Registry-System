@@ -167,7 +167,7 @@ public class AccountController {
         String imagePath = userOpt.get().getProfileImage();
         if (imagePath == null || imagePath.isBlank()) return ResponseEntity.notFound().build();
 
-        Path fullPath = Paths.get("E:\\Law's Registry System\\attachment\\profileImages")
+        Path fullPath = Paths.get("D:\\Law's Registry System\\attachment\\profileImages")
                 .resolve(Paths.get(imagePath).getFileName())
                 .normalize();
 

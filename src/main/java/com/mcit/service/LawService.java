@@ -141,12 +141,25 @@ public class LawService {
             existing.setAttachment(updates.getAttachment());
         }
 
-        // 🔹 Convert publishDate to Hijri-Qamari if provided
-        if (updates.getPublishDate() != null && !updates.getPublishDate().isBlank()) {
-            String hijriQamariDate =
-                    dateConversionService.toHijriQamariAuto(updates.getPublishDate());
-            existing.setPublishDate(hijriQamariDate);
+        if (updates.getPublishDate() != null
+                && !updates.getPublishDate().isBlank()) {
+
+            String inputDate = updates.getPublishDate();
+
+            // 🟢 Skip if already Islamic Hijri-Qamari
+            if (isAlreadyIslamicQamari(inputDate)) {
+
+                existing.setPublishDate(inputDate);
+
+            } else {
+
+                String hijriQamariDate =
+                        dateConversionService.toHijriQamariAuto(inputDate);
+
+                existing.setPublishDate(hijriQamariDate);
+            }
         }
+
 
         if (updates.getUserId() != null) {
             User user = userRepository.findById(updates.getUserId())
