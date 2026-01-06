@@ -1,6 +1,6 @@
 package com.mcit.controller;
 
-import com.mcit.dto.BackupDTO;;
+import com.mcit.dto.BackupDTO;
 import com.mcit.service.ActivityLogService;
 import com.mcit.service.CurrentUserInfoService;
 import com.mcit.service.DbBackupService;
