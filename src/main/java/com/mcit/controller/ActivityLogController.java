@@ -69,13 +69,13 @@ public class ActivityLogController {
                 entityName, action, userName, searchItem, pageable
         );
 
-// Map to DTO
+        // Map to DTO
         List<ActivityLogResponseDTO> dtoList = result.getContent()
                 .stream()
                 .map(activityLogService::mapEntityToDTO) // use your mapper
                 .toList();
 
-// Wrap in a PageImpl
+        // Wrap in a PageImpl
         Page<ActivityLogResponseDTO> dtoPage = new PageImpl<>(
                 dtoList,
                 pageable,

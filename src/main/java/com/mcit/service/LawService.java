@@ -44,11 +44,17 @@ public class LawService {
         law.setDescription(dto.getDescription());
         law.setAttachment(dto.getAttachment());
 
-        // 🔹 Auto-detect calendar & convert to Hijri-Qamari
-        String hijriQamariDate =
-                dateConversionService.toHijriQamariAuto(dto.getPublishDate());
+        String inputDate = dto.getPublishDate();
 
-        law.setPublishDate(hijriQamariDate);
+        // 🟢 CRITICAL PART — Skip conversion if already Islamic Qamari
+        if (isAlreadyIslamicQamari(inputDate)) {
+            law.setPublishDate(inputDate);
+        } else {
+            String converted =
+                    dateConversionService.toHijriQamariAuto(inputDate);
+
+            law.setPublishDate(converted);
+        }
 
         law.setUser(
                 userRepository.findById(dto.getUserId())
@@ -331,6 +337,14 @@ public class LawService {
         return lawRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Law not found with id: " + id));
     }
+
+    private boolean isAlreadyIslamicQamari(String date) {
+        if (date == null) return false;
+
+        // Detect formats like: 1447-01-06, 1446-09-20
+        return date.matches("144\\d-\\d{2}-\\d{2}");
+    }
+
 
 }
 
