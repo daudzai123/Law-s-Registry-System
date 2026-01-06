@@ -127,13 +127,11 @@ public class SecurityConfiguration {
 
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
-//                "https://localhost:3000",
+                "https://localhost:3000",
                 "http://103.132.98.92:3000",
-//                "https://103.132.98.92:3000",
+                "https://103.132.98.92:3000",
                 "http://103.132.98.92"
-//                "https://103.132.98.92",
-//                "http://ictinnovation.gov.af",
-//                "https://ictinnovation.gov.af"
+
         ));
 
         configuration.setAllowedMethods(

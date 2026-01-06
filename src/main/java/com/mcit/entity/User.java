@@ -50,7 +50,7 @@ public class User {
     private Role role;
 
     @Column(columnDefinition = "boolean default true")
-    private Boolean isActive = true;
+    public Boolean isActive = true;
 
     @Column(name = "create_date", updatable = false, nullable = false)
     private String createDate;
@@ -90,4 +90,6 @@ public class User {
 
     @Column(name = "position")
     private String position;
+
+
 }

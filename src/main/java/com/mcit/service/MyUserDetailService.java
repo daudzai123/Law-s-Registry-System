@@ -1,6 +1,7 @@
 package com.mcit.service;
 
 import com.mcit.dto.ChangePasswordRequest;
+import com.mcit.dto.UserResponseDTO;
 import com.mcit.entity.User;
 import com.mcit.repo.UserRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class MyUserDetailService implements UserDetailsService {
 
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
+
 
     @Autowired
     public MyUserDetailService(UserRepository repository, PasswordEncoder passwordEncoder) {
@@ -101,5 +103,4 @@ public class MyUserDetailService implements UserDetailsService {
         return repository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
     }
-
 }

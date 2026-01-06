@@ -29,9 +29,9 @@ public class FileStorageService {
     public FileStorageService(LawRepository lawRepository) {
         this.lawRepository = lawRepository;
 
-        this.lawAttachmentLocation = Paths.get("E:\\Law's Registry System\\attachment\\laws")
+        this.lawAttachmentLocation = Paths.get("D:\\Law's Registry System\\attachment\\laws")
                 .toAbsolutePath().normalize();
-        this.profileImageLocation = Paths.get("E:\\Law's Registry System\\attachment\\profileImages")
+        this.profileImageLocation = Paths.get("D:\\Law's Registry System\\attachment\\profileImages")
                 .toAbsolutePath().normalize();
 
         try {
