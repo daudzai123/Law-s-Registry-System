@@ -24,8 +24,15 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
             "OR LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
     List<Law> searchByTitle(@Param("title") String title);
 
-    @Query("SELECT l FROM Law l WHERE l.titleEng = :title OR l.titlePs = :title OR l.titleDr = :title")
-    List<Law> findByExactTitle(@Param("title") String title);
+@Query("""
+    SELECT l FROM Law l
+    WHERE (l.titleEng = :title OR l.titlePs = :title OR l.titleDr = :title)
+    AND (:type IS NULL OR l.type = :type)
+""")
+List<Law> findByExactTitleFlexible(
+    @Param("title") String title,
+    @Param("type") LawType type
+);
 
 
     /* ===============================

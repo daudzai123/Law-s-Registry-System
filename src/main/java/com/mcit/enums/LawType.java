@@ -4,5 +4,7 @@ public enum LawType {
     OSOLNAMA,
     NIZAMNAMA,
     BUSINESS_ADS,
-    JARIDA
+    JARIDA,
+     MAJMOA_OF_LAW,    
+    AHKAM_AND_FRAMIN  
 }

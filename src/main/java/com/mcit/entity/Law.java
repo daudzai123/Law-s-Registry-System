@@ -23,8 +23,11 @@ public class Law {
     @Enumerated(EnumType.STRING)
     private LawType type;
 
-    @Column(name = "sequence_number")
+    @Column(name = "sequence_number", nullable = true) // Changed from nullable = false
     private Long sequenceNumber;
+
+    @Column(name = "collection") // New field
+    private String collection;
 
     private String titleEng;
 

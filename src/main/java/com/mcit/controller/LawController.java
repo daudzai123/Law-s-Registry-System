@@ -277,10 +277,15 @@ public class LawController {
     }
 
     // Search By Exact Title
-        @GetMapping("/search/exact-title")
-    public ResponseEntity<?> searchByExactTitle(@RequestParam String title) {
-        return ResponseEntity.ok(lawService.findByExactTitle(title));
-    }
+     @GetMapping("/search/exact-title")
+public ResponseEntity<List<LawResponseDTO>> findByExactTitle(
+        @RequestParam String title,
+        @RequestParam(required = false) LawType type) {
+
+    return ResponseEntity.ok(
+            lawService.findByExactTitle(title, type)
+    );
+}
 
     // Report and Statistic
     @GetMapping("/reports/law-status-counts")

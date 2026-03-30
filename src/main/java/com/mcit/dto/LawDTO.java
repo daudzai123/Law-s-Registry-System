@@ -16,6 +16,7 @@ public class LawDTO {
     private Status status;
     private String publishDate;
     private String description;
+    private String collection;
     private String attachment;
     private String createDate;
     private String updateDate;

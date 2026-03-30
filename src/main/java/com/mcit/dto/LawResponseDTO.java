@@ -17,6 +17,7 @@ public class LawResponseDTO {
     private Status status;
     private String description;
     private String createDate;
+    private String collection;
     private String updateDate;
     private String attachment;
     private String attachmentSize;
