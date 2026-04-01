@@ -1,5 +1,5 @@
 package com.mcit.controller;
-
+    import jakarta.servlet.http.HttpServletRequest;
 import com.mcit.dto.UserProfileDTO;
 import com.mcit.dto.UserResponseDTO;
 import com.mcit.entity.User;
@@ -189,49 +189,94 @@ public class AccountController {
         }
     }
 
-    @PostMapping("/authenticate")
-    public ResponseEntity<?> authenticateAndGetToken(@RequestBody LoginForm loginForm) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginForm.identifier(), loginForm.password()
-                    )
-            );
 
-            Optional<User> optionalUser = findByUsernameOrEmail(loginForm.identifier());
 
-            if (optionalUser.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not found");
-            }
+@PostMapping("/authenticate")
+public ResponseEntity<?> authenticateAndGetToken(
+        @RequestBody LoginForm loginForm,
+        HttpServletRequest request
+) {
+    try {
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginForm.identifier(),
+                        loginForm.password()
+                )
+        );
 
-            User user = optionalUser.get();
+        Optional<User> optionalUser = findByUsernameOrEmail(loginForm.identifier());
 
-            if (!user.getIsActive()) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Inactive user. Please contact admin.");
-            }
-
-            if (authentication.isAuthenticated()) {
-                activityLogService.logActivity(
-                        "User",
-                        user.getId(),
-                        "LOGIN",
-                        "User logged in",
-                        user.getUsername()
-                );
-                UserDetails userDetails = myUserDetailService.loadUserByUsername(loginForm.identifier());
-                String token = jwtUtilityClass.generateToken(userDetails);
-                return ResponseEntity.ok(token);
-            }
-
-        } catch (BadCredentialsException e) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid username/email or password");
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Authentication error");
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("User not found");
         }
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid credentials");
+        User user = optionalUser.get();
+
+        if (!user.getIsActive()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Inactive user. Please contact admin.");
+        }
+
+        if (authentication.isAuthenticated()) {
+
+            // ✅ GET REAL IP (proxy-safe)
+            String ip = request.getHeader("X-Forwarded-For");
+            if (ip == null || ip.isBlank()) {
+                ip = request.getRemoteAddr();
+            }
+
+            // ✅ SUCCESS LOG
+            activityLogService.logActivity(
+                    "AUTH",
+                    user.getId(),
+                    "LOGIN_SUCCESS",
+                    "User logged in from IP: " + ip,
+                    user.getUsername()
+            );
+
+            UserDetails userDetails =
+                    myUserDetailService.loadUserByUsername(loginForm.identifier());
+
+            String token = jwtUtilityClass.generateToken(userDetails);
+
+            return ResponseEntity.ok(token);
+        }
+
+    } catch (BadCredentialsException e) {
+
+        Optional<User> optionalUser = findByUsernameOrEmail(loginForm.identifier());
+
+        String username = loginForm.identifier();
+        Long userId = optionalUser.map(User::getId).orElse(null);
+
+        // ✅ GET REAL IP
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isBlank()) {
+            ip = request.getRemoteAddr();
+        }
+
+        // ❌ FAILED LOGIN LOG
+        activityLogService.logActivity(
+                "AUTH",
+                userId,
+                "LOGIN_FAILED",
+                "Failed login attempt from IP: " + ip,
+                username
+        );
+
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body("Invalid username/email or password");
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Authentication error");
     }
+
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body("Invalid credentials");
+}
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(

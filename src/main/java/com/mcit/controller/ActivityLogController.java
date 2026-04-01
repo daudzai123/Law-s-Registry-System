@@ -95,4 +95,11 @@ public class ActivityLogController {
         );
 
     }
+    @GetMapping("/failed-attempts")
+public ResponseEntity<Long> getFailedAttempts(
+        @RequestParam String username
+) {
+    long count = activityLogService.getFailedAttempts(username);
+    return ResponseEntity.ok(count);
+}
 }

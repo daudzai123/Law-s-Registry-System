@@ -10,4 +10,6 @@ public class BackupDTO {
     String backupPath;
     LocalDateTime created_at;
     Long creator;
+    String CreatorName;
+    
 }

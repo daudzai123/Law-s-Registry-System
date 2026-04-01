@@ -97,14 +97,29 @@ public class LawController {
             // 4️⃣ Save law
             LawDTO savedLaw = lawService.addLawFromDTO(lawDTO);
 
-            // ✅ ACTIVITY LOG
-            activityLogService.logActivity(
-                    "Law",
-                    savedLaw.getId(),
-                    "CREATE",
-                    "Law created with sequence number: " + savedLaw.getSequenceNumber(),
-                    actor
-            );
+   String message;
+
+if (savedLaw.getType() == LawType.AHKAM_AND_FRAMIN ||
+    savedLaw.getType() == LawType.MAJMOA_OF_LAW) {
+
+    message = savedLaw.getType().getDisplayName()
+            + " created with title: " + savedLaw.getTitleEng();
+
+} else {
+
+    message = savedLaw.getType().getDisplayName()
+            + " created with sequence number: " + savedLaw.getSequenceNumber()
+            + " and title: " + savedLaw.getTitleEng();
+}
+
+// ✅ ACTIVITY LOG
+activityLogService.logActivity(
+        "Law",
+        savedLaw.getId(),
+        "CREATE",
+        message,
+        actor
+);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(savedLaw);
 

@@ -53,7 +53,7 @@ public class DbBackupService {
                     dto.setId(b.getId());
                     dto.setBackupPath(b.getBackupPath());
                     dto.setCreated_at(b.getCreated_at());
-                    dto.setCreator(b.getCreator() != null ? b.getCreator().getId() : null);
+                    dto.setCreator(b.getCreatername() != null ? b.getCreatername().getId() : null);
                     return dto;
                 })
                 .collect(Collectors.toList());
@@ -118,7 +118,7 @@ public class DbBackupService {
             BackupDB db = new BackupDB();
             db.setBackupPath(backupFileName);
             db.setCreated_at(LocalDateTime.now());
-            db.setCreator(currentUserInfoService.getCurrentUser());
+            db.setCreatername(currentUserInfoService.getCurrentUser());
             backupRepository.save(db);
             System.out.println("Backup completed successfully!");
             downloadSql(response, backupFileName);

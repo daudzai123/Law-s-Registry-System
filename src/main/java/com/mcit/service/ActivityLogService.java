@@ -70,6 +70,13 @@ public class ActivityLogService {
         );
     }
 
+    public long getFailedAttempts(String username) {
+    return activityLogRepository.countFailedAttempts(
+            username,
+            LocalDateTime.now().minusHours(24) // last 24h
+    );
+}
+
     public Page<ActivityLogResponseDTO> findByCriteria(
             ActivityLogCriteria criteria,
             Pageable pageable

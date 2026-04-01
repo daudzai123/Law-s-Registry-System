@@ -24,6 +24,8 @@ public class ActivityLog {
 
     @Column(length = 6000)
     private String content;
+    @Column(name = "ip_address")
+private String ipAddress;
 
     private LocalDateTime timestamp;
     private Long recordId;
@@ -39,5 +41,10 @@ public class ActivityLog {
             this.content = "[]";
         }
         return content;
+    }
+
+    public void setIpAddress(String ip) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'setIpAddress'");
     }
 }

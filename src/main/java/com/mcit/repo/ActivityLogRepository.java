@@ -14,6 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +33,19 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog,Long> {
             @Param("search") String search,
             Pageable pageable
     );
+
+    //Faild login attempt logging
+    @Query("""
+SELECT COUNT(a)
+FROM ActivityLog a
+WHERE a.userName = :username
+AND a.action = 'LOGIN_FAILED'
+AND a.timestamp >= :since
+""")
+long countFailedAttempts(
+        @Param("username") String username,
+        @Param("since") LocalDateTime since
+);
 
     default Specification<ActivityLog> buildSpecification(ActivityLogCriteria criteria){
         return (Root<ActivityLog> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {

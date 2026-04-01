@@ -86,6 +86,7 @@ public class BackupController{
                 "DELETE_BACKUP",
                 "Deleted backup with ID: " + id,
                 currentUsername
+                
         );
 
         return backupService.deleteBackup(id);

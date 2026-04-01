@@ -26,6 +26,7 @@ public class User {
     private String lastname;
 
     private String fathername;
+    private String ipAddress;
 
     @Column(unique = true)
     private String nid;
