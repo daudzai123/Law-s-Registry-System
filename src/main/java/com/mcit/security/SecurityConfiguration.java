@@ -128,9 +128,9 @@ public class SecurityConfiguration {
         configuration.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "https://localhost:3000",
-                "http://103.132.98.92:3000",
-                "https://103.132.98.92:3000",
-                "http://103.132.98.92"
+                "http://103.132.98.195:3000",
+                "https://103.132.98.195:3000",
+                "http://103.132.98.195"
 
         ));
 

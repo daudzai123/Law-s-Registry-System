@@ -13,20 +13,25 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 @Service
 public class DbBackupService {
 
     private final DbBackupRepository backupRepository;
     private final CurrentUserInfoService currentUserInfoService;
-
+    private final FileStorageService fileStorageService;
     @Autowired
-    public DbBackupService(DbBackupRepository backupRepository, CurrentUserInfoService currentUserInfoService) {
+    public DbBackupService(DbBackupRepository backupRepository, CurrentUserInfoService currentUserInfoService , FileStorageService fileStorageService) {
         this.backupRepository = backupRepository;
         this.currentUserInfoService = currentUserInfoService;
+        this.fileStorageService = fileStorageService;
     }
 
     @Value("${spring.datasource.username}")
@@ -95,64 +100,124 @@ public class DbBackupService {
         }
     }
 
-    public BackupDB generateBackup(HttpServletResponse response) throws IOException, InterruptedException {
-        String backupFileName = "backup-" + System.currentTimeMillis() + ".sql";
-        String backupFilePath = Paths.get(backupPath, backupFileName).toString();
+  public BackupDB generateBackup(HttpServletResponse response) throws IOException, InterruptedException {
 
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                pgdump,
-                "-h", "localhost",
-                "-U", username,
-                "-d", dbname,
-                "-F", "c",
-                "-b",
-                "-v",
-                "-f", backupFilePath
-        );
-        processBuilder.environment().put("PGPASSWORD", password);
+    String timestamp = String.valueOf(System.currentTimeMillis());
 
-        Process process = processBuilder.start();
-        int exitCode = process.waitFor();
+    String backupFileName = "backup-" + timestamp + ".sql";
+    String zipFileName = "attachments-" + timestamp + ".zip";
 
-        if (exitCode == 0) {
-            BackupDB db = new BackupDB();
-            db.setBackupPath(backupFileName);
-            db.setCreated_at(LocalDateTime.now());
-            db.setCreatername(currentUserInfoService.getCurrentUser());
-            backupRepository.save(db);
-            System.out.println("Backup completed successfully!");
-            downloadSql(response, backupFileName);
-        } else {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.getWriter().write("Backup process failed!");
-            System.err.println("Backup failed!");
-        }
-        return null;
+    Path backupFilePath = Paths.get(backupPath, backupFileName);
+    Path zipFilePath = Paths.get(backupPath, zipFileName);
+
+    // 1️⃣ Backup DB
+    ProcessBuilder processBuilder = new ProcessBuilder(
+            pgdump,
+            "-h", "localhost",
+            "-U", username,
+            "-d", dbname,
+            "-F", "c",
+            "-b",
+            "-v",
+            "-f", backupFilePath.toString()
+    );
+
+    processBuilder.environment().put("PGPASSWORD", password);
+
+    Process process = processBuilder.start();
+    int exitCode = process.waitFor();
+
+    if (exitCode != 0) {
+        throw new RuntimeException("Database backup failed!");
     }
 
-    public String restoreDB(String fileName) throws IOException, InterruptedException {
-        String restoreFilePath = Paths.get(backupPath, fileName).toString();
+    // 2️⃣ Backup attachments folder
+    Path attachmentFolder = fileStorageService.getLawAttachmentPath().getParent(); // "attachment" root
+    zipFolder(attachmentFolder, zipFilePath);
 
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                "C:/Program Files/PostgreSQL/17/bin/pg_restore",
-                "-h", "localhost",
-                "-U", username,
-                "-d", dbname,
-                "--clean",
-                "-v",
-                restoreFilePath
-        );
-        processBuilder.environment().put("PGPASSWORD", password);
+    // 3️⃣ Save record
+    BackupDB db = new BackupDB();
+    db.setBackupPath(backupFileName);
+    db.setCreated_at(LocalDateTime.now());
+    db.setCreatername(currentUserInfoService.getCurrentUser());
 
-        Process process = processBuilder.start();
-        int exitCode = process.waitFor();
+    backupRepository.save(db);
 
-        if (exitCode == 0) {
-            System.out.println("Restore completed successfully!");
-            return "Restore completed successfully!";
-        } else {
-            System.err.println("Restore failed!");
-            return "Restore failed!";
+    // 4️⃣ Download SQL only (optional)
+    downloadSql(response, backupFileName);
+
+    return db;
+}
+
+public String restoreDB(String fileName) throws IOException, InterruptedException {
+
+    String timestamp = fileName.replace("backup-", "").replace(".sql", "");
+    String zipFileName = "attachments-" + timestamp + ".zip";
+
+    Path sqlPath = Paths.get(backupPath, fileName);
+    Path zipPath = Paths.get(backupPath, zipFileName);
+
+    // 1️⃣ Restore DB
+    ProcessBuilder processBuilder = new ProcessBuilder(
+            "C:/Program Files/PostgreSQL/17/bin/pg_restore",
+            "-h", "localhost",
+            "-U", username,
+            "-d", dbname,
+            "--clean",
+            "-v",
+            sqlPath.toString()
+    );
+
+    processBuilder.environment().put("PGPASSWORD", password);
+
+    Process process = processBuilder.start();
+    int exitCode = process.waitFor();
+
+    if (exitCode != 0) {
+        return "Restore failed (DB)!";
+    }
+
+    // 2️⃣ Restore attachments
+    if (Files.exists(zipPath)) {
+        Path targetFolder = fileStorageService.getLawAttachmentPath().getParent();
+        unzip(zipPath, targetFolder);
+    } else {
+        return "DB restored, but attachments ZIP not found!";
+    }
+
+    return "Restore completed successfully (DB + attachments)!";
+}
+
+    private void zipFolder(Path sourceFolder, Path zipPath) throws IOException {
+    try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(zipPath))) {
+        Files.walk(sourceFolder)
+                .filter(path -> !Files.isDirectory(path))
+                .forEach(path -> {
+                    ZipEntry zipEntry = new ZipEntry(sourceFolder.relativize(path).toString());
+                    try {
+                        zs.putNextEntry(zipEntry);
+                        Files.copy(path, zs);
+                        zs.closeEntry();
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error zipping file: " + path, e);
+                    }
+                });
+    }
+}
+
+private void unzip(Path zipFile, Path targetFolder) throws IOException {
+    try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
+        ZipEntry entry;
+        while ((entry = zis.getNextEntry()) != null) {
+            Path newPath = targetFolder.resolve(entry.getName()).normalize();
+
+            if (entry.isDirectory()) {
+                Files.createDirectories(newPath);
+            } else {
+                Files.createDirectories(newPath.getParent());
+                Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
+            }
         }
     }
+}
 }

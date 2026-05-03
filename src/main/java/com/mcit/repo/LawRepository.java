@@ -2,10 +2,13 @@ package com.mcit.repo;
 
 import com.mcit.entity.Law;
 import com.mcit.enums.LawType;
+
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Map;
@@ -19,10 +22,17 @@ public interface LawRepository extends JpaRepository<Law, Long>, JpaSpecificatio
     /* ===============================
        Search Methods
        =============================== */
-    @Query("SELECT l FROM Law l WHERE LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) " +
-            "OR LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) " +
-            "OR LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))")
-    List<Law> searchByTitle(@Param("title") String title);
+   @Query("""
+    SELECT l FROM Law l
+    WHERE (
+        LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR
+        LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR
+        LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))
+    )
+    AND (:type IS NULL OR l.type = :type)
+""")
+List<Law> searchByTitle(@Param("title") String title,
+                        @Param("type") LawType type);
 
 @Query("""
     SELECT l FROM Law l
@@ -35,6 +45,41 @@ List<Law> findByExactTitleFlexible(
 );
 
 
+ // these new methods for public access@Query("SELECT l FROM Law l WHERE l.isPublic = true")
+
+  @Query("SELECT l FROM Law l WHERE l.isPublic = true")
+    Page<Law> findAllPublic(Pageable pageable);
+    
+    // ✅ CORRECT - Using Spring's Pageable
+    @Query("SELECT l FROM Law l WHERE l.isPublic = true AND l.type = :type")
+    Page<Law> findAllPublicByType(@Param("type") LawType type, Pageable pageable);
+    
+    // For public search by title
+    @Query("""
+        SELECT l FROM Law l
+        WHERE l.isPublic = true AND (
+            LOWER(l.titleEng) LIKE LOWER(CONCAT('%', :title, '%')) OR
+            LOWER(l.titlePs) LIKE LOWER(CONCAT('%', :title, '%')) OR
+            LOWER(l.titleDr) LIKE LOWER(CONCAT('%', :title, '%'))
+        )
+        AND (:type IS NULL OR l.type = :type)
+    """)
+    List<Law> searchPublicByTitle(@Param("title") String title, @Param("type") LawType type);
+
+
+
+    // public search by sequence number
+
+
+@Query("""
+SELECT l FROM Law l
+WHERE l.sequenceNumber = :sequenceNumber
+AND (:type IS NULL OR l.type = :type)
+""")
+List<Law> searchPublicBySequenceNumber(
+    @Param("sequenceNumber") Long sequenceNumber,
+    @Param("type") LawType type
+);
     /* ===============================
        Reporting / Statistics
        =============================== */
@@ -154,6 +199,7 @@ List<Law> findByExactTitleFlexible(
     List<Object[]> countByTypeAndStatusAndDate(@Param("year") int year, @Param("month") Integer month);
 
 
+    
 
 
 

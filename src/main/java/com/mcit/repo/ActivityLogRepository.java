@@ -6,10 +6,13 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.springframework.transaction.annotation.Transactional;  // ✅ FIXED: Changed import
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -34,7 +37,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog,Long> {
             Pageable pageable
     );
 
-    //Faild login attempt logging
+    // Failed login attempt logging
     @Query("""
 SELECT COUNT(a)
 FROM ActivityLog a
@@ -42,11 +45,36 @@ WHERE a.userName = :username
 AND a.action = 'LOGIN_FAILED'
 AND a.timestamp >= :since
 """)
-long countFailedAttempts(
-        @Param("username") String username,
-        @Param("since") LocalDateTime since
-);
+    long countFailedAttempts(
+            @Param("username") String username,
+            @Param("since") LocalDateTime since
+    );
 
+    // ✅ FIXED: Added @Modifying and fixed @Transactional
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ActivityLog a WHERE a.timestamp < :cutoffDateTime")
+    int deleteLogsOlderThan(@Param("cutoffDateTime") LocalDateTime cutoffDateTime);
+
+    @Query("SELECT MIN(a.timestamp) FROM ActivityLog a")
+    LocalDateTime getOldestLogTimestamp();
+
+    @Query("SELECT COUNT(a) FROM ActivityLog a WHERE a.timestamp < :cutoffDateTime")
+    long countLogsOlderThan(@Param("cutoffDateTime") LocalDateTime cutoffDateTime);
+
+    @Query("SELECT MAX(a.timestamp) FROM ActivityLog a")
+    LocalDateTime getNewestLogTimestamp();
+    
+    @Query("SELECT COUNT(a) FROM ActivityLog a WHERE a.timestamp BETWEEN :startDate AND :endDate")
+    long countLogsBetween(@Param("startDate") LocalDateTime startDate, 
+                          @Param("endDate") LocalDateTime endDate);
+
+    // ✅ FIXED: Added @Modifying and @Transactional
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM ActivityLog a WHERE YEAR(a.timestamp) = :year")
+    int deleteLogsByYear(@Param("year") int year);
+    
     default Specification<ActivityLog> buildSpecification(ActivityLogCriteria criteria){
         return (Root<ActivityLog> root, CriteriaQuery<?> query, CriteriaBuilder cb) -> {
             List<Predicate> predicates = new ArrayList<>();
