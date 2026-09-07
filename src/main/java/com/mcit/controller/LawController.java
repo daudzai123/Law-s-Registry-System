@@ -472,7 +472,7 @@ if (lawDTO.getType() != LawType.AHKAM_AND_FRAMIN &&
             LawSearchCriteriaDTO criteria,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "id,asc") String[] sort,
+            @RequestParam(defaultValue = "createDate,desc") String[] sort,
             @RequestParam(required = false) List<LawType> type // Add this to accept multiple type params
     ) {
         // If multiple types are provided in query string, set them in criteria
@@ -684,11 +684,12 @@ public HijriDefaultResponse getDefaults() {
 public ResponseEntity<PaginatedResponseDTO<LawResponseDTO>> getPublicLaws(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "10") int size,
-        @RequestParam(defaultValue = "id,asc") String[] sort,
+        @RequestParam(defaultValue = "createDate,desc") String[] sort,
         @RequestParam(required = false) LawType type) {
     
     // Match your existing pattern
-    Sort sortOrder = Sort.by(Sort.Direction.fromString(sort[1]), sort[0]);
+    Sort sortOrder = Sort.by(new Sort.Order(Sort.Direction.fromString(sort[1]), sort[0]).nullsLast())
+            .and(Sort.by(Sort.Direction.DESC, "id"));
     Pageable pageable = PageRequest.of(page, size, sortOrder);
     
     Page<LawResponseDTO> result = lawService.getPublicLaws(pageable, type);

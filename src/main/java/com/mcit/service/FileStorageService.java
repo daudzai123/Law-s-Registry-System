@@ -4,6 +4,8 @@ import com.mcit.entity.LawAttachment;
 import com.mcit.exception.FileStorageException;
 import com.mcit.exception.ResourceNotFoundException;
 import com.mcit.repo.LawAttachmentRepository;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -22,18 +24,28 @@ import java.util.List;
 public class FileStorageService {
 
     private final LawAttachmentRepository lawAttachmentRepository;
-    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+    private static final long MAX_FILE_SIZE = 100 * 1024 * 1024;
 
-    private final Path lawAttachmentLocation;
-    private final Path profileImageLocation;
+    @Value("${file.storage.base-path}")
+    private String basePath;
+
+    @Value("${file.storage.laws-subdir:laws}")
+    private String lawsSubdir;
+
+    @Value("${file.storage.profile-subdir:profileImages}")
+    private String profileSubdir;
+
+    private Path lawAttachmentLocation;
+    private Path profileImageLocation;
 
     public FileStorageService(LawAttachmentRepository lawAttachmentRepository) {
         this.lawAttachmentRepository = lawAttachmentRepository;
+    }
 
-        this.lawAttachmentLocation = Paths.get("D:\\Law's Registry System\\attachment\\laws")
-                .toAbsolutePath().normalize();
-        this.profileImageLocation = Paths.get("D:\\Law's Registry System\\attachment\\profileImages")
-                .toAbsolutePath().normalize();
+    @PostConstruct
+    public void init() {
+        this.lawAttachmentLocation = Paths.get(basePath, lawsSubdir).toAbsolutePath().normalize();
+        this.profileImageLocation = Paths.get(basePath, profileSubdir).toAbsolutePath().normalize();
 
         try {
             Files.createDirectories(this.lawAttachmentLocation);
@@ -43,17 +55,20 @@ public class FileStorageService {
         }
     }
 
-    // Get the law attachment path
     public Path getLawAttachmentPath() {
         return this.lawAttachmentLocation;
     }
 
-    // Get the profile image path
     public Path getProfileImagePath() {
         return this.profileImageLocation;
     }
 
-    // ---------------- Save Law Attachment (PDF only) ----------------
+    /** Rebind cached locations after a complete attachment-directory swap. */
+    public synchronized void refreshLocations() {
+        this.lawAttachmentLocation = Paths.get(basePath, lawsSubdir).toAbsolutePath().normalize();
+        this.profileImageLocation = Paths.get(basePath, profileSubdir).toAbsolutePath().normalize();
+    }
+
     public String saveLawAttachment(MultipartFile file) {
         validatePdfFile(file);
 
@@ -64,7 +79,11 @@ public class FileStorageService {
         String fileName = baseName + "_" + timestamp + "." + extension;
 
         try {
-            Path targetLocation = this.lawAttachmentLocation.resolve(fileName);
+            Files.createDirectories(this.lawAttachmentLocation);
+            Path targetLocation = this.lawAttachmentLocation.resolve(fileName).normalize();
+            if (!targetLocation.startsWith(this.lawAttachmentLocation)) {
+                throw new FileStorageException("Invalid law attachment filename.");
+            }
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
             return "laws/" + fileName;
         } catch (IOException ex) {
@@ -76,6 +95,7 @@ public class FileStorageService {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new FileStorageException("Attachment size exceeds 100MB limit.");
         }
+
         String contentType = file.getContentType();
         String filename = file.getOriginalFilename();
 
@@ -87,7 +107,6 @@ public class FileStorageService {
         }
     }
 
-    // ---------------- Save Profile Image (jpg, jpeg, png) ----------------
     public String saveProfileImage(MultipartFile file) {
         validateImageFile(file);
 
@@ -95,7 +114,8 @@ public class FileStorageService {
         String fileName = "profile_" + System.currentTimeMillis() + "." + extension;
 
         try {
-            Path targetLocation = this.profileImageLocation.resolve(fileName);
+            Files.createDirectories(this.profileImageLocation);
+            Path targetLocation = this.profileImageLocation.resolve(fileName).normalize();
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
             return "profileImages/" + fileName;
         } catch (IOException ex) {
@@ -107,18 +127,18 @@ public class FileStorageService {
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new FileStorageException("Profile image size exceeds 100MB limit.");
         }
-        String extension = StringUtils.getFilenameExtension(file.getOriginalFilename()).toLowerCase();
-        if (!Arrays.asList("jpg", "jpeg", "png").contains(extension)) {
+
+        String extension = StringUtils.getFilenameExtension(file.getOriginalFilename());
+        if (extension == null || !Arrays.asList("jpg", "jpeg", "png").contains(extension.toLowerCase())) {
             throw new FileStorageException("Only JPG, JPEG, PNG files are allowed for profile images.");
         }
     }
 
-    // ---------------- Delete Files ----------------
     public void deleteLawAttachment(String attachmentPath) {
         if (attachmentPath == null || attachmentPath.isBlank()) {
             return;
         }
-        
+
         try {
             String fileName = attachmentPath.replace("laws/", "");
             Path pathToDelete = lawAttachmentLocation.resolve(fileName).normalize();
@@ -127,15 +147,13 @@ public class FileStorageService {
             throw new FileStorageException("Could not delete file: " + attachmentPath, ex);
         }
     }
-    
-    // Delete attachment by LawAttachment entity
+
     public void deleteLawAttachment(LawAttachment attachment) {
         if (attachment != null && attachment.getFilePath() != null && !attachment.getFilePath().isBlank()) {
             deleteLawAttachment(attachment.getFilePath());
         }
     }
-    
-    // Delete all attachments for a law
+
     public void deleteAllLawAttachments(Long lawId) {
         List<LawAttachment> attachments = lawAttachmentRepository.findByLawId(lawId);
         for (LawAttachment attachment : attachments) {
@@ -156,170 +174,186 @@ public class FileStorageService {
         }
     }
 
-    // ---------------- Load Law Attachment from attachment table ----------------
     public Resource loadLawAttachmentById(Long lawId, String language) {
         List<LawAttachment> attachments;
-        
+
         if (language != null && !language.isEmpty()) {
-            // Get specific language attachment
             attachments = lawAttachmentRepository.findByLawIdAndLanguage(lawId, language);
         } else {
-            // Get primary attachment or first available
             var primaryAttachment = lawAttachmentRepository.findByLawIdAndIsPrimaryTrue(lawId);
-            if (primaryAttachment.isPresent()) {
-                attachments = List.of(primaryAttachment.get());
-            } else {
-                attachments = lawAttachmentRepository.findByLawId(lawId);
-            }
+            attachments = primaryAttachment.map(List::of)
+                    .orElseGet(() -> lawAttachmentRepository.findByLawId(lawId));
         }
-        
+
         if (attachments.isEmpty()) {
             throw new ResourceNotFoundException("No attachment found for law id: " + lawId + " with language: " + language);
         }
-        
+
         LawAttachment attachment = attachments.get(0);
         String attachmentPath = attachment.getFilePath();
-        
+
         if (attachmentPath == null || attachmentPath.isBlank()) {
             throw new ResourceNotFoundException("No file path found for attachment");
         }
 
         try {
             Path filePath = this.lawAttachmentLocation.resolve(attachmentPath.replace("laws/", "")).normalize();
+
             if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
                 throw new FileStorageException("File does not exist or is not readable: " + attachmentPath);
             }
+
             return new PathResource(filePath);
         } catch (Exception e) {
             throw new FileStorageException("Error loading file: " + attachmentPath, e);
         }
     }
-    
-    // Load attachment by attachment ID
+
     public Resource loadLawAttachmentByAttachmentId(Long attachmentId) {
         LawAttachment attachment = lawAttachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Attachment not found with id: " + attachmentId));
-        
+
         String attachmentPath = attachment.getFilePath();
-        
+
         if (attachmentPath == null || attachmentPath.isBlank()) {
             throw new ResourceNotFoundException("No file path found for attachment id: " + attachmentId);
         }
 
         try {
             Path filePath = this.lawAttachmentLocation.resolve(attachmentPath.replace("laws/", "")).normalize();
+
             if (!Files.exists(filePath) || !Files.isReadable(filePath)) {
                 throw new FileStorageException("File does not exist or is not readable: " + attachmentPath);
             }
+
             return new PathResource(filePath);
         } catch (Exception e) {
             throw new FileStorageException("Error loading file: " + attachmentPath, e);
         }
     }
 
-    // Overloaded method for backward compatibility
     public Resource loadLawAttachmentById(Long lawId) {
         return loadLawAttachmentById(lawId, null);
     }
 
-    // Get formatted file size
     public String getFormattedFileSize(String filePath, boolean isProfileImage) {
-        Path folder = isProfileImage ? profileImageLocation : lawAttachmentLocation;
-        if (filePath == null) return null;
+        Long size = getFileSizeInBytes(filePath, isProfileImage);
 
-        try {
-            String cleanFileName = filePath;
-            if (filePath.startsWith("laws/")) {
-                cleanFileName = filePath.replace("laws/", "");
-            } else if (filePath.startsWith("profileImages/")) {
-                cleanFileName = filePath.replace("profileImages/", "");
-            }
-            
-            Path filePathObj = folder.resolve(cleanFileName).normalize();
-            long sizeInBytes = Files.size(filePathObj);
-            double sizeInMB = sizeInBytes / (1024.0 * 1024.0);
-            return String.format("%.2f MB", sizeInMB);
-        } catch (IOException e) {
+        if (size == null) {
             return null;
         }
+
+        double sizeInMB = size / (1024.0 * 1024.0);
+        return String.format("%.2f MB", sizeInMB);
     }
-    
-    // Get formatted file size for LawAttachment
+
     public String getFormattedFileSize(LawAttachment attachment) {
         if (attachment == null || attachment.getFilePath() == null) {
             return null;
         }
+
         return getFormattedFileSize(attachment.getFilePath(), false);
     }
-    
-    // Get total formatted file size for all attachments of a law
+
     public String getTotalFormattedFileSizeForLaw(Long lawId) {
         List<LawAttachment> attachments = lawAttachmentRepository.findByLawId(lawId);
+
         if (attachments.isEmpty()) {
             return null;
         }
-        
+
         long totalSize = 0;
+
         for (LawAttachment attachment : attachments) {
             Long size = getFileSizeInBytes(attachment.getFilePath(), false);
             if (size != null) {
                 totalSize += size;
             }
         }
-        
+
         if (totalSize > 0) {
             double sizeInMB = totalSize / (1024.0 * 1024.0);
             return String.format("%.2f MB", sizeInMB);
         }
-        
+
         return null;
     }
-    
-    // Get file size in bytes
+
     public Long getFileSizeInBytes(String filePath, boolean isProfileImage) {
         Path folder = isProfileImage ? profileImageLocation : lawAttachmentLocation;
-        if (filePath == null) return null;
+
+        if (filePath == null) {
+            return null;
+        }
 
         try {
             String cleanFileName = filePath;
+
             if (filePath.startsWith("laws/")) {
                 cleanFileName = filePath.replace("laws/", "");
             } else if (filePath.startsWith("profileImages/")) {
                 cleanFileName = filePath.replace("profileImages/", "");
             }
-            
+
             Path filePathObj = folder.resolve(cleanFileName).normalize();
             return Files.size(filePathObj);
         } catch (IOException e) {
             return null;
         }
     }
-    
-    // Get file size in bytes for LawAttachment
+
     public Long getFileSizeInBytes(LawAttachment attachment) {
         if (attachment == null || attachment.getFilePath() == null) {
             return null;
         }
+
         return getFileSizeInBytes(attachment.getFilePath(), false);
     }
-    
-    // Check if file exists
+
     public boolean fileExists(String filePath, boolean isProfileImage) {
         Path folder = isProfileImage ? profileImageLocation : lawAttachmentLocation;
-        if (filePath == null) return false;
-        
+
+        if (filePath == null) {
+            return false;
+        }
+
         try {
             String cleanFileName = filePath;
+
             if (filePath.startsWith("laws/")) {
                 cleanFileName = filePath.replace("laws/", "");
             } else if (filePath.startsWith("profileImages/")) {
                 cleanFileName = filePath.replace("profileImages/", "");
             }
-            
+
             Path filePathObj = folder.resolve(cleanFileName).normalize();
             return Files.exists(filePathObj) && Files.isReadable(filePathObj);
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    public long getLawAttachmentRecordCount() {
+        return lawAttachmentRepository.count();
+    }
+
+    /** Validate restored database paths against a staged attachment root before activation. */
+    public void validateLawAttachmentFiles(Path stagedAttachmentRoot, long expectedRecordCount) {
+        List<LawAttachment> records = lawAttachmentRepository.findAll();
+        if (records.size() != expectedRecordCount) {
+            throw new FileStorageException("Restored attachment record count does not match the backup manifest.");
+        }
+        Path root = stagedAttachmentRoot.toAbsolutePath().normalize();
+        for (LawAttachment attachment : records) {
+            String storedPath = attachment.getFilePath();
+            if (storedPath == null || storedPath.isBlank()) {
+                throw new FileStorageException("Restored attachment record has an empty file path.");
+            }
+            String relative = storedPath.replace('\\', '/');
+            Path candidate = root.resolve(relative).normalize();
+            if (!candidate.startsWith(root) || !Files.isRegularFile(candidate) || !Files.isReadable(candidate)) {
+                throw new FileStorageException("Restored attachment is missing: " + storedPath);
+            }
         }
     }
 }

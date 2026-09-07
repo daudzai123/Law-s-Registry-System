@@ -124,7 +124,12 @@ public Page<Law> searchLaws(LawSearchCriteriaDTO criteria, int page, int size, S
     // - If types specified: only those types
     // - If no types specified: ALL 6 types
     
-    Sort sortOrder = Sort.by(Sort.Direction.fromString(sort[1]), sort[0]);
+    Sort sortOrder = Sort.by(new Sort.Order(Sort.Direction.DESC, "createDate").nullsLast())
+            .and(Sort.by(Sort.Direction.DESC, "id"));
+    if (sort != null && sort.length >= 2 && !("id".equals(sort[0]) && "asc".equalsIgnoreCase(sort[1]))) {
+        sortOrder = Sort.by(Sort.Direction.fromString(sort[1]), sort[0])
+                .and(Sort.by(Sort.Direction.DESC, "id"));
+    }
     Pageable pageable = PageRequest.of(page, size, sortOrder);
     
     return lawRepository.findAll(spec, pageable);

@@ -1,223 +1,55 @@
 package com.mcit.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mcit.dto.BackupDTO;
 import com.mcit.entity.BackupDB;
 import com.mcit.exception.ResourceNotFoundException;
 import com.mcit.repo.DbBackupRepository;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
+import org.springframework.web.multipart.MultipartFile;
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
+import java.net.URI;
+import java.nio.file.*;
+import java.security.MessageDigest;
+import java.time.*;
+import java.util.*;
+import java.util.stream.Stream;
+import java.util.zip.*;
 
 @Service
 public class DbBackupService {
-
-    private final DbBackupRepository backupRepository;
-    private final CurrentUserInfoService currentUserInfoService;
-    private final FileStorageService fileStorageService;
-    @Autowired
-    public DbBackupService(DbBackupRepository backupRepository, CurrentUserInfoService currentUserInfoService , FileStorageService fileStorageService) {
-        this.backupRepository = backupRepository;
-        this.currentUserInfoService = currentUserInfoService;
-        this.fileStorageService = fileStorageService;
-    }
-
-    @Value("${spring.datasource.username}")
-    private String username;
-
-    @Value("${datasource.name}")
-    private String dbname;
-
-    @Value("${pgdump.address}")
-    private String pgdump;
-
-    @Value("${spring.datasource.password}")
-    private String password;
-
-    @Value("${backup.path}")
-    private String backupPath;
-
-    // Return DTOs instead of entities
-    public List<BackupDTO> getAllBackup() {
-        return backupRepository.findAll()
-                .stream()
-                .map(b -> {
-                    BackupDTO dto = new BackupDTO();
-                    dto.setId(b.getId());
-                    dto.setBackupPath(b.getBackupPath());
-                    dto.setCreated_at(b.getCreated_at());
-                    dto.setCreator(b.getCreatername() != null ? b.getCreatername().getId() : null);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    public String deleteBackup(Long id) {
-        BackupDB db = backupRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Backup not found!"));
-        Path path = Paths.get(backupPath, db.getBackupPath());
-        try {
-            Files.deleteIfExists(path); // avoids exception if file doesn't exist
-            backupRepository.delete(db);
-            return "Backup deleted successfully.";
-        } catch (IOException e) {
-            System.err.println("Error deleting file: " + e.getMessage());
-            // Still delete DB record to avoid orphan
-            backupRepository.delete(db);
-            return "Backup file could not be deleted, but DB record removed.";
-        }
-
-    }
-
-    public void downloadSql(HttpServletResponse response, String fileName) throws IOException {
-        Path backupFilePath = Paths.get(backupPath, fileName);
-        if (Files.exists(backupFilePath)) {
-            response.setContentType("application/octet-stream");
-            response.setHeader("Content-Disposition", "attachment; filename=" + fileName);
-            try (InputStream is = Files.newInputStream(backupFilePath);
-                 OutputStream os = response.getOutputStream()) {
-                byte[] buffer = new byte[1024];
-                int length;
-                while ((length = is.read(buffer)) != -1) {
-                    os.write(buffer, 0, length);
-                }
-            }
-        } else {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            response.getWriter().write("Backup file not found!");
-        }
-    }
-
-  public BackupDB generateBackup(HttpServletResponse response) throws IOException, InterruptedException {
-
-    String timestamp = String.valueOf(System.currentTimeMillis());
-
-    String backupFileName = "backup-" + timestamp + ".sql";
-    String zipFileName = "attachments-" + timestamp + ".zip";
-
-    Path backupFilePath = Paths.get(backupPath, backupFileName);
-    Path zipFilePath = Paths.get(backupPath, zipFileName);
-
-    // 1️⃣ Backup DB
-    ProcessBuilder processBuilder = new ProcessBuilder(
-            pgdump,
-            "-h", "localhost",
-            "-U", username,
-            "-d", dbname,
-            "-F", "c",
-            "-b",
-            "-v",
-            "-f", backupFilePath.toString()
-    );
-
-    processBuilder.environment().put("PGPASSWORD", password);
-
-    Process process = processBuilder.start();
-    int exitCode = process.waitFor();
-
-    if (exitCode != 0) {
-        throw new RuntimeException("Database backup failed!");
-    }
-
-    // 2️⃣ Backup attachments folder
-    Path attachmentFolder = fileStorageService.getLawAttachmentPath().getParent(); // "attachment" root
-    zipFolder(attachmentFolder, zipFilePath);
-
-    // 3️⃣ Save record
-    BackupDB db = new BackupDB();
-    db.setBackupPath(backupFileName);
-    db.setCreated_at(LocalDateTime.now());
-    db.setCreatername(currentUserInfoService.getCurrentUser());
-
-    backupRepository.save(db);
-
-    // 4️⃣ Download SQL only (optional)
-    downloadSql(response, backupFileName);
-
-    return db;
-}
-
-public String restoreDB(String fileName) throws IOException, InterruptedException {
-
-    String timestamp = fileName.replace("backup-", "").replace(".sql", "");
-    String zipFileName = "attachments-" + timestamp + ".zip";
-
-    Path sqlPath = Paths.get(backupPath, fileName);
-    Path zipPath = Paths.get(backupPath, zipFileName);
-
-    // 1️⃣ Restore DB
-    ProcessBuilder processBuilder = new ProcessBuilder(
-            "C:/Program Files/PostgreSQL/17/bin/pg_restore",
-            "-h", "localhost",
-            "-U", username,
-            "-d", dbname,
-            "--clean",
-            "-v",
-            sqlPath.toString()
-    );
-
-    processBuilder.environment().put("PGPASSWORD", password);
-
-    Process process = processBuilder.start();
-    int exitCode = process.waitFor();
-
-    if (exitCode != 0) {
-        return "Restore failed (DB)!";
-    }
-
-    // 2️⃣ Restore attachments
-    if (Files.exists(zipPath)) {
-        Path targetFolder = fileStorageService.getLawAttachmentPath().getParent();
-        unzip(zipPath, targetFolder);
-    } else {
-        return "DB restored, but attachments ZIP not found!";
-    }
-
-    return "Restore completed successfully (DB + attachments)!";
-}
-
-    private void zipFolder(Path sourceFolder, Path zipPath) throws IOException {
-    try (ZipOutputStream zs = new ZipOutputStream(Files.newOutputStream(zipPath))) {
-        Files.walk(sourceFolder)
-                .filter(path -> !Files.isDirectory(path))
-                .forEach(path -> {
-                    ZipEntry zipEntry = new ZipEntry(sourceFolder.relativize(path).toString());
-                    try {
-                        zs.putNextEntry(zipEntry);
-                        Files.copy(path, zs);
-                        zs.closeEntry();
-                    } catch (IOException e) {
-                        throw new RuntimeException("Error zipping file: " + path, e);
-                    }
-                });
-    }
-}
-
-private void unzip(Path zipFile, Path targetFolder) throws IOException {
-    try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(zipFile))) {
-        ZipEntry entry;
-        while ((entry = zis.getNextEntry()) != null) {
-            Path newPath = targetFolder.resolve(entry.getName()).normalize();
-
-            if (entry.isDirectory()) {
-                Files.createDirectories(newPath);
-            } else {
-                Files.createDirectories(newPath.getParent());
-                Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
-    }
-}
+  private static final String VERSION="2", MANIFEST="manifest.json";
+  private static final ObjectMapper JSON=new ObjectMapper();
+  private final DbBackupRepository repository; private final BackupProcessRunner runner;
+  private final CurrentUserInfoService user; private final FileStorageService storage;
+  private final Object lock=new Object();
+  @Value("$"+"{spring.datasource.username}") private String username;
+  @Value("$"+"{spring.datasource.url}") private String datasourceUrl;
+  @Value("$"+"{pgdump.address}") private String pgdump;
+  @Value("$"+"{pgrestore.address}") private String pgrestore;
+  @Value("$"+"{backup.path}") private String backupPath;
+  @Value("$"+"{backup.application-version:unknown}") private String appVersion;
+  public DbBackupService(DbBackupRepository r,CurrentUserInfoService u,FileStorageService s,BackupProcessRunner p){repository=r;user=u;storage=s;runner=p;}
+  public List<BackupDTO> getAllBackup(){return repository.findAll().stream().map(b->{BackupDTO d=new BackupDTO();d.setId(b.getId());d.setBackupPath(b.getBackupPath());d.setCreated_at(b.getCreated_at());d.setCreator(b.getCreatername()==null?null:b.getCreatername().getId());return d;}).toList();}
+  public String deleteBackup(Long id){synchronized(lock){BackupDB b=repository.findById(id).orElseThrow(()->new ResourceNotFoundException("Backup not found."));try{Files.deleteIfExists(file(b.getBackupPath()));repository.delete(b);return "Backup deleted successfully.";}catch(IOException e){throw new IllegalStateException("Backup is locked or could not be deleted.",e);}}}
+  public void downloadSql(HttpServletResponse response,String name)throws IOException{Path f=file(name);if(!Files.isRegularFile(f)){response.sendError(404,"Backup file not found.");return;}response.setContentType("application/zip");response.setHeader("Content-Disposition","attachment; filename=\""+f.getFileName()+"\"");try(InputStream in=Files.newInputStream(f);OutputStream out=response.getOutputStream()){in.transferTo(out);}}
+  public BackupDB generateBackup()throws IOException,InterruptedException{return generateBackup("law-mis-backup");}
+  public BackupDB generateBackup(String prefix)throws IOException,InterruptedException{synchronized(lock){String id=UUID.randomUUID().toString();Path dir=Paths.get(backupPath).toAbsolutePath().normalize();Files.createDirectories(dir);Path dump=Files.createTempFile(dir,"."+id+"-", ".dump"),part=dir.resolve("."+prefix+"-"+id+".zip.part"),result=dir.resolve(prefix+"-"+id+".zip");try{Path root=storage.getLawAttachmentPath().getParent();if(!Files.isDirectory(root))throw new IOException("Attachment directory is unavailable.");storage.validateLawAttachmentFiles(root,storage.getLawAttachmentRecordCount());runner.run(command(pgdump,"-Fc","-b","-f",dump.toString()));Manifest m=manifest(id,dump,root);try(ZipOutputStream z=new ZipOutputStream(Files.newOutputStream(part))){put(z,MANIFEST,JSON.writeValueAsBytes(m));putFile(z,"database/lawmis.dump",dump);try(Stream<Path> paths=Files.walk(root)){paths.filter(Files::isRegularFile).forEach(p->{try{putFile(z,"attachments/"+root.relativize(p).toString().replace('\\','/'),p);}catch(IOException e){throw new UncheckedIOException(e);}});}}Files.move(part,result,StandardCopyOption.ATOMIC_MOVE);BackupDB b=new BackupDB();b.setBackupPath(result.getFileName().toString());b.setCreated_at(LocalDateTime.now());b.setCreatername(user.getCurrentUser());return repository.save(b);}catch(UncheckedIOException e){throw e.getCause();}catch(IOException|InterruptedException|RuntimeException e){Files.deleteIfExists(part);Files.deleteIfExists(result);throw e;}finally{Files.deleteIfExists(dump);}}}
+  public String restoreDB(String name)throws IOException,InterruptedException{synchronized(lock){Path p=file(name);if(!name.endsWith(".zip"))throw new IOException("Legacy database-only backup rejected; create a complete v2 backup.");Path stage=stage(p);try{validate(stage);BackupDB safety=generateBackup("pre-restore");try{return restoreStaged(stage);}catch(Exception failure){try{restorePackage(file(safety.getBackupPath()));}catch(Exception rollback){failure.addSuppressed(rollback);}throwFailure(failure);return null;}}finally{deleteTree(stage);}}}
+  public String restoreUpload(MultipartFile backup)throws IOException,InterruptedException{if(backup==null||backup.isEmpty())throw new IllegalArgumentException("Select a complete backup package.");synchronized(lock){Path tmp=Files.createTempFile("lawmis-upload-",".zip");try(InputStream in=backup.getInputStream()){Files.copy(in,tmp,StandardCopyOption.REPLACE_EXISTING);}Path stage=stage(tmp);try{validate(stage);BackupDB safety=generateBackup("pre-restore");try{return restoreStaged(stage);}catch(Exception failure){try{restorePackage(file(safety.getBackupPath()));}catch(Exception rollback){failure.addSuppressed(rollback);}throwFailure(failure);return null;}}finally{deleteTree(stage);Files.deleteIfExists(tmp);}}}
+  private String restorePackage(Path p)throws IOException,InterruptedException{Path stage=stage(p);try{validate(stage);return restoreStaged(stage);}finally{deleteTree(stage);}}
+  /** Legacy two-file API is intentionally disabled to prevent mismatched restores. */
+  @Deprecated public String restoreUpload(MultipartFile database, MultipartFile attachments){throw new IllegalArgumentException("Upload one complete backup package containing database and attachments.");}
+  private String restoreStaged(Path s)throws IOException,InterruptedException{Path dump=s.resolve("database/lawmis.dump");Manifest manifest=JSON.readValue(Files.readAllBytes(s.resolve(MANIFEST)),Manifest.class);runner.run(List.of(pgrestore,"--list",dump.toString()));runner.run(command(pgrestore,"--clean","--if-exists","--exit-on-error","--single-transaction",dump.toString()));storage.validateLawAttachmentFiles(s.resolve("attachments"),manifest.lawAttachmentRecordCount);swap(s.resolve("attachments"));return "Restore completed successfully (database and attachments verified).";}
+  private void throwFailure(Exception e)throws IOException,InterruptedException{if(e instanceof IOException i)throw i;if(e instanceof InterruptedException i)throw i;if(e instanceof RuntimeException r)throw r;throw new IOException("Restore failed",e);}
+  private Path stage(Path p)throws IOException{if(!Files.isRegularFile(p))throw new ResourceNotFoundException("Backup package not found.");Path live=storage.getLawAttachmentPath().getParent();Path s=Files.createTempDirectory(live.getParent(),".lawmis-restore-");try(ZipInputStream z=new ZipInputStream(Files.newInputStream(p))){ZipEntry e;while((e=z.getNextEntry())!=null){if(e.isDirectory())continue;String n=e.getName();if(n.startsWith("/")||n.matches("^[A-Za-z]:.*")||n.contains("..")||n.contains("\0"))throw new IOException("Unsafe backup path: "+n);Path t=s.resolve(n).normalize();if(!t.startsWith(s))throw new IOException("Unsafe backup path: "+n);Files.createDirectories(t.getParent());try(OutputStream out=Files.newOutputStream(t)){z.transferTo(out);}}Files.createDirectories(s.resolve("attachments"));return s;}catch(Exception e){deleteTree(s);if(e instanceof IOException i)throw i;throw new IOException("Corrupt backup archive",e);}}
+  private void validate(Path s)throws IOException{Path mf=s.resolve(MANIFEST),dump=s.resolve("database/lawmis.dump");if(!Files.isRegularFile(mf)||!Files.isRegularFile(dump))throw new IOException("This is not a complete Law-MIS backup package. Select law-mis-backup-*.zip, not an attachments-only ZIP.");Manifest m;try{m=JSON.readValue(Files.readAllBytes(mf),Manifest.class);}catch(Exception e){throw new IOException("Invalid backup manifest.",e);}if(!VERSION.equals(m.backupVersion)||m.backupId==null||m.databaseBackupSha256==null||!m.databaseBackupSha256.equals(sha256(dump)))throw new IOException("Backup manifest or database checksum is invalid.");Path root=s.resolve("attachments").normalize();if(!Files.isDirectory(root))throw new IOException("Backup package is missing its attachments directory.");long bytes=0;for(Attachment a:m.attachments){Path f=root.resolve(a.relativePath).normalize();if(!f.startsWith(root)||!Files.isRegularFile(f))throw new IOException("Attachment is missing: "+a.relativePath);if(Files.size(f)!=a.size||!a.sha256.equalsIgnoreCase(sha256(f)))throw new IOException("Attachment checksum failed: "+a.relativePath);bytes+=a.size;}try(Stream<Path> p=Files.walk(root)){if(p.filter(Files::isRegularFile).count()!=m.attachmentCount)throw new IOException("Attachment count does not match manifest.");}if(bytes!=m.totalAttachmentBytes)throw new IOException("Attachment size does not match manifest.");}
+  private void swap(Path staged)throws IOException{Path live=storage.getLawAttachmentPath().getParent(),parent=live.getParent(),incoming=parent.resolve(live.getFileName()+".restore-"+UUID.randomUUID()),old=parent.resolve(live.getFileName()+".before-restore-"+UUID.randomUUID());Files.move(staged,incoming,StandardCopyOption.ATOMIC_MOVE);try{Files.move(live,old,StandardCopyOption.ATOMIC_MOVE);Files.move(incoming,live,StandardCopyOption.ATOMIC_MOVE);storage.refreshLocations();deleteTree(old);}catch(Exception e){Files.deleteIfExists(incoming);if(Files.exists(old)&&!Files.exists(live))Files.move(old,live,StandardCopyOption.ATOMIC_MOVE);if(e instanceof IOException i)throw i;throw new IOException("Attachment directory swap failed",e);}}
+  private Manifest manifest(String id,Path dump,Path root)throws IOException{Manifest m=new Manifest();m.backupId=id;m.backupVersion=VERSION;m.application="Law-MIS";m.applicationVersion=appVersion;m.createdAt=OffsetDateTime.now(ZoneOffset.UTC).toString();m.databaseType="PostgreSQL";m.databaseBackupFormat="custom";m.databaseBackupFile="database/lawmis.dump";m.databaseBackupSha256=sha256(dump);m.attachmentRoot="attachments";m.lawAttachmentRecordCount=storage.getLawAttachmentRecordCount();try(Stream<Path> p=Files.walk(root)){p.filter(Files::isRegularFile).forEach(f->{try{Attachment a=new Attachment();a.relativePath=root.relativize(f).toString().replace('\\','/');a.size=Files.size(f);a.sha256=sha256(f);m.attachments.add(a);m.totalAttachmentBytes+=a.size;}catch(IOException e){throw new UncheckedIOException(e);}});}m.attachmentCount=m.attachments.size();return m;}
+  private void put(ZipOutputStream z,String n,byte[] d)throws IOException{z.putNextEntry(new ZipEntry(n));z.write(d);z.closeEntry();}private void putFile(ZipOutputStream z,String n,Path p)throws IOException{z.putNextEntry(new ZipEntry(n));try(InputStream in=Files.newInputStream(p)){in.transferTo(z);}z.closeEntry();}
+  private String sha256(Path p)throws IOException{try(InputStream in=Files.newInputStream(p)){return sha256(in);}}private String sha256(InputStream in)throws IOException{try{MessageDigest d=MessageDigest.getInstance("SHA-256");byte[] b=new byte[1024*1024];int n;while((n=in.read(b))!=-1)d.update(b,0,n);return HexFormat.of().formatHex(d.digest());}catch(Exception e){throw new IOException("SHA-256 unavailable",e);}}
+  private Path file(String n){if(n==null||n.contains("..")||n.contains("/")||n.contains("\\")||n.matches(".*%2f.*"))throw new IllegalArgumentException("Invalid backup filename.");return Paths.get(backupPath).toAbsolutePath().normalize().resolve(n);}private List<String> command(String e,String...a){URI u=URI.create(datasourceUrl.substring(6));List<String> c=new ArrayList<>(List.of(e,"--no-password","-h",u.getHost(),"-p",String.valueOf(u.getPort()<0?5432:u.getPort()),"-U",username,"-d",u.getPath().substring(1)));c.addAll(List.of(a));return c;}private void deleteTree(Path r)throws IOException{if(r==null||!Files.exists(r))return;try(Stream<Path> p=Files.walk(r)){p.sorted(Comparator.reverseOrder()).forEach(x->{try{Files.deleteIfExists(x);}catch(IOException e){throw new UncheckedIOException(e);}});}}
+  public static class Manifest{public String backupId,application,backupVersion,createdAt,databaseType,databaseBackupFormat,databaseBackupFile,databaseBackupSha256,attachmentRoot,applicationVersion;public long attachmentCount,totalAttachmentBytes,lawAttachmentRecordCount;public List<Attachment> attachments=new ArrayList<>();}public static class Attachment{public String relativePath,sha256;public long size;}
 }
