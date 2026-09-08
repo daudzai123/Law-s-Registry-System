@@ -84,6 +84,7 @@ public class SecurityConfiguration {
                     // ✅ allow CORS preflight
                     registry.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     registry.requestMatchers(HttpMethod.GET, "/api/laws/**").permitAll();
+                    registry.requestMatchers(HttpMethod.GET, "/api/backup/download-by-ticket/**").permitAll();
                     
 
                     // ✅ public endpoints

@@ -78,6 +78,16 @@ public class BackupController{
         return result;
     }
 
+    @PostMapping("/download-ticket/{fileName:.+}")
+    public Map<String, String> createDownloadTicket(@PathVariable String fileName) {
+        return Map.of("ticket", backupService.createDownloadTicket(fileName));
+    }
+
+    @GetMapping("/download-by-ticket/{ticket}")
+    public void downloadByTicket(HttpServletResponse response, @PathVariable String ticket) throws IOException {
+        backupService.downloadWithTicket(response, ticket);
+    }
+
     @PostMapping(value = "/restore/upload", consumes = "multipart/form-data")
     public String restoreUpload(@RequestParam("backup") MultipartFile backup)
             throws IOException, InterruptedException {
